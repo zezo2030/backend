@@ -6,7 +6,6 @@ import {
   issueSession,
   type AuthTestApp
 } from '../helpers/auth-test-app.js';
-import { ModerationStatus } from '../../src/modules/properties/property.enums.js';
 import { seedArea, seedCity } from '../helpers/test-db.js';
 
 interface UploadResponse {
@@ -109,7 +108,7 @@ describe('listings owner edit/status/delete (e2e)', () => {
     expect(deletedDoc?.deletedAt).toBeInstanceOf(Date);
   });
 
-  it('regular-user edits to moderation-relevant fields revert to pending_review', async () => {
+  it('regular-user edits to moderation-relevant fields stay active', async () => {
     const session = await issueSession(testApp, 'u5550004005@test.local');
     await request(httpServer(testApp))
       .post('/api/v1/auth/select-role')
@@ -147,16 +146,11 @@ describe('listings owner edit/status/delete (e2e)', () => {
       .expect(201);
     const propertyId = (created.body as PropertyResponse).id;
 
-    await testApp.prisma.property.update({
-      where: { id: propertyId },
-      data: { moderationStatus: ModerationStatus.active }
-    });
-
     const edited = await request(httpServer(testApp))
       .patch(`/api/v1/properties/${propertyId}`)
       .set('Authorization', `Bearer ${session.accessToken}`)
       .send({ title: 'Suspicious New Title' })
       .expect(200);
-    expect((edited.body as PropertyResponse).moderationStatus).toBe('pending_review');
+    expect((edited.body as PropertyResponse).moderationStatus).toBe('active');
   });
 });

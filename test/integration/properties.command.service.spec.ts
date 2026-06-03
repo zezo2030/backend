@@ -93,7 +93,7 @@ describe('PropertiesCommandService (integration)', () => {
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
-  it('creates regular-user listing as pending_review and flips back to pending on moderation-relevant edits', async () => {
+  it('creates regular-user listing as active and keeps active on moderation-relevant edits', async () => {
     const user = await seedSession({ email: 'u5550005002@test.local', role: Role.RegularUser });
     const city = await seedCity(testApp.prisma, 'cmd-city-3');
     const area = await seedArea(testApp.prisma, city.id, 'cmd-area-3');
@@ -117,12 +117,7 @@ describe('PropertiesCommandService (integration)', () => {
       },
       user.userId
     );
-    expect(created.moderationStatus).toBe(ModerationStatus.PendingReview);
-
-    await testApp.prisma.property.update({
-      where: { id: created.id },
-      data: { moderationStatus: ModerationStatus.Active }
-    });
+    expect(created.moderationStatus).toBe(ModerationStatus.Active);
 
     const editedNonModeration = await service.update(created.id, { bathrooms: 2 }, user.userId);
     expect(editedNonModeration.moderationStatus).toBe(ModerationStatus.Active);
@@ -132,7 +127,7 @@ describe('PropertiesCommandService (integration)', () => {
       { title: 'Updated Title' },
       user.userId
     );
-    expect(editedModeration.moderationStatus).toBe(ModerationStatus.PendingReview);
+    expect(editedModeration.moderationStatus).toBe(ModerationStatus.Active);
   });
 
   it('transitions availability and soft-deletes; rejects non-owner non-admin edits', async () => {

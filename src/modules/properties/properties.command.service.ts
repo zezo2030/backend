@@ -23,13 +23,6 @@ import {
   type PropertyImageRecord
 } from './property.enums.js';
 
-const MODERATION_RELEVANT_FIELDS = new Set<keyof PropertyUpdateDto>([
-  'title',
-  'description',
-  'price',
-  'imageObjectKeys'
-]);
-
 @Injectable()
 export class PropertiesCommandService {
   constructor(
@@ -47,8 +40,6 @@ export class PropertiesCommandService {
     if (!owner?.role) throw new ForbiddenException('Account has no role');
 
     const images = await this.headImages(dto.imageObjectKeys);
-    const moderationStatus =
-      owner.role === Role.RegularUser ? ModerationStatus.pending_review : ModerationStatus.active;
 
     const created = await this.prisma.$transaction(async (tx) => {
       return tx.property.create({
@@ -69,7 +60,7 @@ export class PropertiesCommandService {
           floor: dto.floor ?? null,
           finishing: dto.finishing ?? null,
           furnished: dto.furnished ?? null,
-          moderationStatus,
+          moderationStatus: ModerationStatus.active,
           availabilityStatus: AvailabilityStatus.available,
           rejectionReason: null,
           viewsCount: 0,
@@ -93,7 +84,7 @@ export class PropertiesCommandService {
       action: 'listing.created',
       targetType: 'property',
       targetId: created.id,
-      metadata: { moderationStatus }
+      metadata: { moderationStatus: ModerationStatus.active }
     });
 
     return this.query.mapDto(created);
@@ -105,7 +96,6 @@ export class PropertiesCommandService {
     callerId: string
   ): Promise<ReturnType<PropertiesQueryService['mapDto']>> {
     const property = await this.findOwnedOrAdmin(id, callerId);
-    const callerRole = await this.lookupRole(callerId);
 
     const data: Prisma.PropertyUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
@@ -121,15 +111,6 @@ export class PropertiesCommandService {
     if (dto.floor !== undefined) data.floor = dto.floor;
     if (dto.finishing !== undefined) data.finishing = dto.finishing;
     if (dto.furnished !== undefined) data.furnished = dto.furnished;
-
-    if (
-      callerRole === Role.RegularUser &&
-      property.moderationStatus === ModerationStatus.active &&
-      this.touchesModeration(dto)
-    ) {
-      data.moderationStatus = ModerationStatus.pending_review;
-      data.rejectionReason = null;
-    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.imageObjectKeys !== undefined) {
@@ -250,10 +231,4 @@ export class PropertiesCommandService {
     return (user?.role as Role | null) ?? null;
   }
 
-  private touchesModeration(dto: PropertyUpdateDto): boolean {
-    for (const field of MODERATION_RELEVANT_FIELDS) {
-      if (dto[field] !== undefined) return true;
-    }
-    return false;
-  }
 }

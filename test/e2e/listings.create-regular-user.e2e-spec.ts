@@ -37,7 +37,7 @@ describe('listings create — regular user (e2e)', () => {
     await closeAuthTestApp(testApp);
   });
 
-  it('regular user listing is pending_review, hidden from feed, visible in /mine', async () => {
+  it('regular user listing is active immediately, visible in feed and /mine', async () => {
     const session = await issueSession(testApp, 'u5550004002@test.local');
     await request(httpServer(testApp))
       .post('/api/v1/auth/select-role')
@@ -74,11 +74,11 @@ describe('listings create — regular user (e2e)', () => {
       })
       .expect(201);
     const createdBody = created.body as PropertyResponse;
-    expect(createdBody.moderationStatus).toBe('pending_review');
+    expect(createdBody.moderationStatus).toBe('active');
 
     const feed = await request(httpServer(testApp)).get('/api/v1/properties').expect(200);
     expect((feed.body as FeedResponse).items.some((item) => item.id === createdBody.id)).toBe(
-      false
+      true
     );
 
     const mine = await request(httpServer(testApp))
@@ -88,7 +88,7 @@ describe('listings create — regular user (e2e)', () => {
     const mineBody = mine.body as MineResponse;
     expect(mineBody.items.some((item) => item.id === createdBody.id)).toBe(true);
     expect(mineBody.items.find((item) => item.id === createdBody.id)?.moderationStatus).toBe(
-      'pending_review'
+      'active'
     );
   });
 });
