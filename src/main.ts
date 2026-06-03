@@ -26,16 +26,19 @@ async function bootstrap(): Promise<void> {
     })
   );
 
-  const contractPath = join(
-    process.cwd(),
-    '..',
-    'specs',
-    '001-realestate-backend-api',
-    'contracts',
-    'openapi.yaml'
-  );
-  const openApi = yaml.load(readFileSync(contractPath, 'utf8')) as OpenAPIObject;
-  SwaggerModule.setup('api/v1/docs', app, openApi);
+  // The OpenAPI contract lives outside the backend repo (sibling specs/ dir) and
+  // may be absent in a backend-only deployment. It only powers the Swagger UI, so
+  // a missing file must not crash the API — log and continue without /docs.
+  const contractPath =
+    process.env.OPENAPI_CONTRACT_PATH ??
+    join(process.cwd(), '..', 'specs', '001-realestate-backend-api', 'contracts', 'openapi.yaml');
+  try {
+    const openApi = yaml.load(readFileSync(contractPath, 'utf8')) as OpenAPIObject;
+    SwaggerModule.setup('api/v1/docs', app, openApi);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(`[bootstrap] Swagger docs disabled — OpenAPI contract not loaded: ${reason}`);
+  }
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
