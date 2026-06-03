@@ -84,43 +84,13 @@ export class AdminLocationsService {
     const location = await this.prisma.location.findUnique({ where: { id } });
     if (!location) throw new NotFoundException('Location not found');
 
+    // Locations are reference/suggestion data only — properties and requests
+    // store the city/area as free text, so there are no foreign keys to guard
+    // against. Deleting a city also removes its child areas.
     if (location.type === LocationType.City) {
-      const childAreas = await this.prisma.location.findMany({
-        where: { parentId: id },
-        select: { id: true }
-      });
-      const childAreaIds = childAreas.map((area) => area.id);
-      const inUse =
-        (await this.prisma.property.count({
-          where: {
-            deletedAt: null,
-            OR: [{ cityId: id }, { areaId: { in: childAreaIds } }]
-          }
-        })) > 0 ||
-        (await this.prisma.propertyRequest.count({
-          where: {
-            deletedAt: null,
-            OR: [{ cityId: id }, { areaId: { in: childAreaIds } }]
-          }
-        })) > 0;
-      if (inUse) {
-        await this.prisma.location.updateMany({
-          where: { OR: [{ id }, { parentId: id }] },
-          data: { isActive: false }
-        });
-        return;
-      }
       await this.prisma.location.deleteMany({
         where: { OR: [{ id }, { parentId: id }] }
       });
-      return;
-    }
-
-    const referenced =
-      (await this.prisma.property.count({ where: { areaId: id, deletedAt: null } })) > 0 ||
-      (await this.prisma.propertyRequest.count({ where: { areaId: id, deletedAt: null } })) > 0;
-    if (referenced) {
-      await this.prisma.location.update({ where: { id }, data: { isActive: false } });
       return;
     }
     await this.prisma.location.delete({ where: { id } });

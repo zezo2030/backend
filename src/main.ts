@@ -41,13 +41,16 @@ async function bootstrap(): Promise<void> {
   }
 
   const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port);
+  const host = process.env.HOST ?? '0.0.0.0';
+  await app.listen(port, host);
 
   const logger = app.get(Logger);
   const baseUrl = `http://localhost:${port}`;
+  const lanUrl = `http://<your-lan-ip>:${port}`;
   logger.log(`App health: ${baseUrl}/health`, 'Bootstrap');
   logger.log(`Swagger UI: ${baseUrl}/api/v1/docs`, 'Bootstrap');
   logger.log(`Cities:     ${baseUrl}/api/v1/locations/cities`, 'Bootstrap');
+  logger.log(`Mobile LAN: set API_BASE_URL=${lanUrl}/api/v1 in mobile/.env`, 'Bootstrap');
 
   if (process.env.DEV_RUN_WORKER === 'true') {
     const worker = app.get(FanoutWorker);

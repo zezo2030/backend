@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { isSupportedImage } from './image-magic.js';
 
 @Injectable()
 export class ObjectStoreService {
@@ -16,6 +17,14 @@ export class ObjectStoreService {
     this.client = createClient(this.supabaseUrl, this.serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
+  }
+
+  async createSignedReadUrl(objectKey: string, expiresInSec: number): Promise<string> {
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .createSignedUrl(objectKey, expiresInSec);
+    if (error) throw error;
+    return data.signedUrl;
   }
 
   async presignPut(objectKey: string, _contentType: string, _ttlSeconds: number): Promise<string> {
@@ -44,6 +53,30 @@ export class ObjectStoreService {
       contentType: response.headers.get('content-type') ?? 'application/octet-stream',
       sizeBytes: Number(response.headers.get('content-length') ?? 0)
     };
+  }
+
+  /** Read the first `length` bytes of an object via a ranged GET. */
+  async peekBytes(objectKey: string, length: number): Promise<Buffer | null> {
+    const encodedPath = objectKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+    const response = await fetch(`${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`, {
+      headers: {
+        Authorization: `Bearer ${this.serviceRoleKey}`,
+        apikey: this.serviceRoleKey,
+        Range: `bytes=0-${length - 1}`
+      }
+    });
+    if (!response.ok) return null;
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  /**
+   * Verify the stored object is a real image by its magic bytes, not its
+   * (client-supplied, therefore untrustworthy) Content-Type. Guards against the
+   * RN Blob-serialization upload bug.
+   */
+  async isValidImage(objectKey: string): Promise<boolean> {
+    const buf = await this.peekBytes(objectKey, 16);
+    return buf !== null && isSupportedImage(buf);
   }
 
   async deleteObjects(objectKeys: string[]): Promise<void> {

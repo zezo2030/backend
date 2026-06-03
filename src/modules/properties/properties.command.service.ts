@@ -16,7 +16,11 @@ import type {
   PropertyCreateDto,
   PropertyUpdateDto
 } from './dto/property-write.dto.js';
-import { PropertiesQueryService, type PropertyWithImages } from './properties.query.service.js';
+import {
+  PropertiesQueryService,
+  propertyInclude,
+  type PropertyWithImages
+} from './properties.query.service.js';
 import {
   AvailabilityStatus,
   ModerationStatus,
@@ -32,7 +36,10 @@ export class PropertiesCommandService {
     private readonly query: PropertiesQueryService
   ) {}
 
-  async create(dto: PropertyCreateDto, ownerId: string): Promise<ReturnType<PropertiesQueryService['mapDto']>> {
+  async create(
+    dto: PropertyCreateDto,
+    ownerId: string
+  ): Promise<ReturnType<PropertiesQueryService['mapDto']>> {
     const owner = await this.prisma.user.findUnique({
       where: { id: ownerId },
       select: { role: true }
@@ -51,8 +58,8 @@ export class PropertiesCommandService {
           listingType: dto.listingType,
           price: toDecimal(dto.price),
           currency: dto.currency,
-          cityId: dto.cityId,
-          areaId: dto.areaId,
+          city: dto.city,
+          area: dto.area,
           address: dto.address ?? null,
           rooms: dto.rooms,
           bathrooms: dto.bathrooms,
@@ -75,7 +82,7 @@ export class PropertiesCommandService {
             }))
           }
         },
-        include: { images: true }
+        include: propertyInclude
       });
     });
 
@@ -102,8 +109,8 @@ export class PropertiesCommandService {
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.price !== undefined) data.price = toDecimal(dto.price);
     if (dto.currency !== undefined) data.currency = dto.currency;
-    if (dto.cityId !== undefined) data.city = { connect: { id: dto.cityId } };
-    if (dto.areaId !== undefined) data.area = { connect: { id: dto.areaId } };
+    if (dto.city !== undefined) data.city = dto.city;
+    if (dto.area !== undefined) data.area = dto.area;
     if (dto.address !== undefined) data.address = dto.address;
     if (dto.rooms !== undefined) data.rooms = dto.rooms;
     if (dto.bathrooms !== undefined) data.bathrooms = dto.bathrooms;
@@ -130,7 +137,7 @@ export class PropertiesCommandService {
       return tx.property.update({
         where: { id: property.id },
         data,
-        include: { images: true }
+        include: propertyInclude
       });
     });
 
@@ -146,7 +153,7 @@ export class PropertiesCommandService {
     const updated = await this.prisma.property.update({
       where: { id: property.id },
       data: { availabilityStatus: dto.availabilityStatus },
-      include: { images: true }
+      include: propertyInclude
     });
     return this.query.mapDto(updated);
   }
@@ -172,7 +179,7 @@ export class PropertiesCommandService {
     const [docs, totalItems] = await Promise.all([
       this.prisma.property.findMany({
         where,
-        include: { images: true },
+        include: propertyInclude,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize
@@ -199,6 +206,14 @@ export class PropertiesCommandService {
           message: `Object not found in storage: ${objectKey}`
         });
       }
+      // The stored Content-Type is client-supplied and can lie (a serialized RN
+      // Blob was once uploaded as image/png). Validate the real bytes.
+      if (!(await this.objectStore.isValidImage(objectKey))) {
+        throw new UnprocessableEntityException({
+          code: 'uploadInvalidImage',
+          message: `Uploaded object is not a valid image: ${objectKey}`
+        });
+      }
       images.push({
         objectKey,
         contentType: head.contentType,
@@ -213,7 +228,7 @@ export class PropertiesCommandService {
   private async findOwnedOrAdmin(id: string, callerId: string): Promise<PropertyWithImages> {
     const property = await this.prisma.property.findFirst({
       where: { id, deletedAt: null },
-      include: { images: true }
+      include: propertyInclude
     });
     if (!property) throw new NotFoundException('Property not found');
 
@@ -230,5 +245,4 @@ export class PropertiesCommandService {
     });
     return (user?.role as Role | null) ?? null;
   }
-
 }

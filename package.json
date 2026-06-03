@@ -29,6 +29,7 @@
     "db:push": "prisma db push",
     "make:admin": "tsx scripts/make-admin.ts",
     "push:test": "tsx scripts/send-test-push.ts",
+    "images:cleanup": "tsx scripts/cleanup-broken-images.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

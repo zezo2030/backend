@@ -9,6 +9,7 @@ import { AuditLogger } from '../../common/logging/audit-logger.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import {
   PropertiesQueryService,
+  propertyInclude,
   type PropertyDto
 } from '../properties/properties.query.service.js';
 import { ModerationStatus } from '../properties/property.enums.js';
@@ -34,7 +35,7 @@ export class AdminPropertiesService {
     const [docs, totalItems] = await Promise.all([
       this.prisma.property.findMany({
         where,
-        include: { images: true },
+        include: propertyInclude,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize
@@ -82,7 +83,7 @@ export class AdminPropertiesService {
       property = await this.prisma.property.update({
         where: { id },
         data,
-        include: { images: true }
+        include: propertyInclude
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {

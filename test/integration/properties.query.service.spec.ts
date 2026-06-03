@@ -16,16 +16,16 @@ describe('PropertiesQueryService (integration)', () => {
   let testApp: AuthTestApp;
   let service: PropertiesQueryService;
   let ownerId: string;
-  let cityId: string;
-  let areaId: string;
+  let city: string;
+  let area: string;
 
   beforeAll(async () => {
     testApp = await createAuthTestApp();
     service = testApp.app.get(PropertiesQueryService);
     const owner = await issueSession(testApp, 'u5550002005@test.local');
     ownerId = owner.user.id;
-    cityId = (await seedCity(testApp.prisma, 'query-city')).id;
-    areaId = (await seedArea(testApp.prisma, cityId, 'query-area')).id;
+    city = (await seedCity(testApp.prisma, 'query-city')).id;
+    area = (await seedArea(testApp.prisma, city, 'query-area')).id;
 
     await seedProperty(testApp.prisma, {
       ownerId,
@@ -33,8 +33,8 @@ describe('PropertiesQueryService (integration)', () => {
       propertyType: 'villa',
       listingType: 'sale',
       price: 200000,
-      cityId,
-      areaId,
+      city,
+      area,
       rooms: 3,
       furnished: 'furnished',
       createdAt: new Date('2026-05-26T12:00:00.000Z'),
@@ -46,8 +46,8 @@ describe('PropertiesQueryService (integration)', () => {
       propertyType: 'villa',
       listingType: 'sale',
       price: 150000,
-      cityId,
-      areaId,
+      city,
+      area,
       rooms: 3,
       furnished: 'furnished',
       createdAt: new Date('2026-05-26T11:00:00.000Z'),
@@ -59,8 +59,8 @@ describe('PropertiesQueryService (integration)', () => {
       propertyType: 'villa',
       listingType: 'sale',
       price: 175000,
-      cityId,
-      areaId,
+      city,
+      area,
       rooms: 2,
       furnished: 'furnished',
       createdAt: new Date('2026-05-26T10:00:00.000Z'),

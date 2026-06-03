@@ -40,6 +40,18 @@ export class FakeObjectStore {
     return Promise.resolve({ contentType: meta.contentType, sizeBytes: meta.sizeBytes });
   }
 
+  peekBytes(objectKey: string, _length: number): Promise<Buffer | null> {
+    if (!this.objects.has(objectKey)) return Promise.resolve(null);
+    // Valid PNG magic header — stored test objects are treated as real images.
+    return Promise.resolve(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0])
+    );
+  }
+
+  isValidImage(objectKey: string): Promise<boolean> {
+    return Promise.resolve(this.objects.has(objectKey));
+  }
+
   deleteObjects(objectKeys: string[]): Promise<void> {
     for (const key of objectKeys) this.objects.delete(key);
     return Promise.resolve();

@@ -4,7 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException
 } from '@nestjs/common';
-import type { Prisma, PropertyRequest } from '@prisma/client';
+import type { PropertyRequest } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { decimalToNumber, toDecimal } from '../../common/prisma/decimal.util.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
@@ -32,10 +32,8 @@ export interface PropertyRequestDto {
   description: string;
   propertyType: string;
   requestType: string;
-  cityId: string;
-  cityName: string;
-  areaId: string;
-  areaName: string;
+  city: string;
+  area: string;
   minPrice: number;
   maxPrice: number;
   currency: string;
@@ -48,16 +46,6 @@ export interface PropertyRequestDto {
   createdAt: Date;
   updatedAt: Date;
 }
-
-type PropertyRequestWithLocation = PropertyRequest & {
-  city: { name: string };
-  area: { name: string };
-};
-
-const locationInclude = {
-  city: { select: { name: true } },
-  area: { select: { name: true } }
-} satisfies Prisma.PropertyRequestInclude;
 
 @Injectable()
 export class PropertyRequestsService {
@@ -80,8 +68,8 @@ export class PropertyRequestsService {
           description: dto.description,
           propertyType: dto.propertyType,
           requestType: dto.requestType,
-          cityId: dto.cityId,
-          areaId: dto.areaId,
+          city: dto.city,
+          area: dto.area,
           minPrice: toDecimal(dto.minPrice),
           maxPrice: toDecimal(dto.maxPrice),
           currency: dto.currency,
@@ -91,8 +79,7 @@ export class PropertyRequestsService {
           contactMethod: dto.contactMethod,
           expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
           status: PropertyRequestStatus.open
-        },
-        include: locationInclude
+        }
       });
       await tx.fanoutOutbox.create({
         data: { requestId: created.id, status: FanoutOutboxStatus.pending }
@@ -111,8 +98,8 @@ export class PropertyRequestsService {
       status: PropertyRequestStatus.open,
       AND: [
         { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-        ...(query.cityId ? [{ cityId: query.cityId }] : []),
-        ...(query.areaId ? [{ areaId: query.areaId }] : []),
+        ...(query.city ? [{ city: { equals: query.city, mode: 'insensitive' as const } }] : []),
+        ...(query.area ? [{ area: { equals: query.area, mode: 'insensitive' as const } }] : []),
         ...(query.cursor ? [this.buildCursorWhere(query.cursor)] : [])
       ]
     };
@@ -120,8 +107,7 @@ export class PropertyRequestsService {
     const docs = await this.prisma.propertyRequest.findMany({
       where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: limit + 1,
-      include: locationInclude
+      take: limit + 1
     });
     const items = docs.slice(0, limit);
     return {
@@ -140,8 +126,7 @@ export class PropertyRequestsService {
         where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
-        take: pageSize,
-        include: locationInclude
+        take: pageSize
       }),
       this.prisma.propertyRequest.count({ where })
     ]);
@@ -177,8 +162,7 @@ export class PropertyRequestsService {
     try {
       const request = await this.prisma.propertyRequest.update({
         where: { id, requesterId, deletedAt: null },
-        data,
-        include: locationInclude
+        data
       });
       return this.toDtoWithRequester(request);
     } catch {
@@ -218,10 +202,9 @@ export class PropertyRequestsService {
     };
   }
 
-  private async findExisting(id: string): Promise<PropertyRequestWithLocation> {
+  private async findExisting(id: string): Promise<PropertyRequest> {
     const request = await this.prisma.propertyRequest.findFirst({
-      where: { id, deletedAt: null },
-      include: locationInclude
+      where: { id, deletedAt: null }
     });
     if (!request) throw new NotFoundException('Property request not found');
     return request;
@@ -236,25 +219,8 @@ export class PropertyRequestsService {
     );
   }
 
-  private async toDtoWithRequester(
-    request: PropertyRequest | PropertyRequestWithLocation
-  ): Promise<PropertyRequestDto> {
-    const withLocation = await this.ensureLocationLoaded(request);
-    return this.toDto(withLocation, await this.mapDisplayProfile(withLocation.requesterId));
-  }
-
-  private async ensureLocationLoaded(
-    request: PropertyRequest | PropertyRequestWithLocation
-  ): Promise<PropertyRequestWithLocation> {
-    if ('city' in request && 'area' in request && request.city && request.area) {
-      return request as PropertyRequestWithLocation;
-    }
-    const loaded = await this.prisma.propertyRequest.findFirst({
-      where: { id: request.id },
-      include: locationInclude
-    });
-    if (!loaded) throw new NotFoundException('Property request not found');
-    return loaded;
+  private async toDtoWithRequester(request: PropertyRequest): Promise<PropertyRequestDto> {
+    return this.toDto(request, await this.mapDisplayProfile(request.requesterId));
   }
 
   private async mapDisplayProfile(userId: string) {
@@ -288,7 +254,7 @@ export class PropertyRequestsService {
   }
 
   private toDto(
-    request: PropertyRequestWithLocation,
+    request: PropertyRequest,
     requester: Awaited<ReturnType<PropertyRequestsService['mapDisplayProfile']>>
   ): PropertyRequestDto {
     return {
@@ -298,10 +264,8 @@ export class PropertyRequestsService {
       description: request.description,
       propertyType: request.propertyType,
       requestType: request.requestType,
-      cityId: request.cityId,
-      cityName: request.city.name,
-      areaId: request.areaId,
-      areaName: request.area.name,
+      city: request.city,
+      area: request.area,
       minPrice: decimalToNumber(request.minPrice),
       maxPrice: decimalToNumber(request.maxPrice),
       currency: request.currency,

@@ -1,6 +1,14 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
-import { IsEntityId } from '../../../common/validation/entity-id.decorator.js';
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min
+} from 'class-validator';
 import { PropertyType } from '../../../common/enums/property-type.enum.js';
 import { FurnishedStatus, ListingType } from '../property.enums.js';
 
@@ -16,12 +24,14 @@ export class PropertiesFeedQueryDto {
   limit = 20;
 
   @IsOptional()
-  @IsEntityId()
-  cityId?: string;
+  @IsString()
+  @MaxLength(120)
+  city?: string;
 
   @IsOptional()
-  @IsEntityId()
-  areaId?: string;
+  @IsString()
+  @MaxLength(120)
+  area?: string;
 
   @IsOptional()
   @IsEnum(PropertyType)

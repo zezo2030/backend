@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma, Property, PropertyImage, User } from '@prisma/client';
+import type { Prisma, Property, PropertyImage } from '@prisma/client';
 import { ObjectStoreUrlService } from '../../infra/objectstore/object-store-url.service.js';
 import { Role } from '../../common/enums/role.enum.js';
 import { decimalToNumber } from '../../common/prisma/decimal.util.js';
@@ -23,8 +23,8 @@ export interface PropertySummaryDto {
   listingType: string;
   price: number;
   currency: string;
-  cityId: string;
-  areaId: string;
+  city: string;
+  area: string;
   rooms: number;
   sizeSqm: number;
   availabilityStatus: string;
@@ -53,7 +53,13 @@ export interface ContactInfoDto {
   whatsappUrl: string | null;
 }
 
-export type PropertyWithImages = Property & { images: PropertyImage[] };
+export const propertyInclude = {
+  images: true
+} satisfies Prisma.PropertyInclude;
+
+export type PropertyWithImages = Property & {
+  images: PropertyImage[];
+};
 
 @Injectable()
 export class PropertiesQueryService {
@@ -71,14 +77,14 @@ export class PropertiesQueryService {
     const where = this.buildFeedWhere(query);
     const docs = await this.prisma.property.findMany({
       where,
-      include: { images: true },
+      include: propertyInclude,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1
     });
 
     const pageItems = docs.slice(0, limit);
     return {
-      items: pageItems.map((property) => this.toSummaryDto(property)),
+      items: await Promise.all(pageItems.map((property) => this.toSummaryDto(property))),
       nextCursor:
         docs.length > limit && pageItems.length > 0
           ? this.encodeCursor(pageItems[pageItems.length - 1]!)
@@ -94,12 +100,12 @@ export class PropertiesQueryService {
     });
     const withViews = { ...property, viewsCount: property.viewsCount + 1 };
     const owner = await this.mapDisplayProfile(property.ownerId);
-    return this.toPropertyDto(withViews, owner);
+    return await this.toPropertyDto(withViews, owner);
   }
 
   async mapDto(property: PropertyWithImages): Promise<PropertyDto> {
     const owner = await this.mapDisplayProfile(property.ownerId);
-    return this.toPropertyDto(property, owner);
+    return await this.toPropertyDto(property, owner);
   }
 
   async revealContact(
@@ -137,8 +143,8 @@ export class PropertiesQueryService {
       availabilityStatus: { in: [AvailabilityStatus.available, AvailabilityStatus.reserved] }
     };
 
-    if (query.cityId) where.cityId = query.cityId;
-    if (query.areaId) where.areaId = query.areaId;
+    if (query.city) where.city = { equals: query.city, mode: 'insensitive' };
+    if (query.area) where.area = { equals: query.area, mode: 'insensitive' };
     if (query.propertyType) where.propertyType = query.propertyType;
     if (query.listingType) where.listingType = query.listingType;
     if (query.rooms !== undefined) where.rooms = query.rooms;
@@ -168,7 +174,7 @@ export class PropertiesQueryService {
         moderationStatus: ModerationStatus.active,
         ownerIsActive: true
       },
-      include: { images: true }
+      include: propertyInclude
     });
     if (!property) throw new NotFoundException('Property not found');
     return property;
@@ -206,7 +212,7 @@ export class PropertiesQueryService {
     };
   }
 
-  private toSummaryDto(property: PropertyWithImages): PropertySummaryDto {
+  private async toSummaryDto(property: PropertyWithImages): Promise<PropertySummaryDto> {
     const primary = [...property.images].sort((a, b) => a.sortOrder - b.sortOrder)[0];
     return {
       id: property.id,
@@ -215,19 +221,28 @@ export class PropertiesQueryService {
       listingType: property.listingType,
       price: decimalToNumber(property.price),
       currency: property.currency,
-      cityId: property.cityId,
-      areaId: property.areaId,
+      city: property.city,
+      area: property.area,
       rooms: property.rooms,
       sizeSqm: property.sizeSqm,
       availabilityStatus: property.availabilityStatus,
-      primaryImageUrl: primary ? this.objectUrl(primary.objectKey) : null,
+      primaryImageUrl: primary ? await this.mediaUrl(primary.objectKey) : null,
       createdAt: property.createdAt
     };
   }
 
-  private toPropertyDto(property: PropertyWithImages, owner: DisplayProfileDto): PropertyDto {
+  private async toPropertyDto(
+    property: PropertyWithImages,
+    owner: DisplayProfileDto
+  ): Promise<PropertyDto> {
+    const summary = await this.toSummaryDto(property);
+    const images = await Promise.all(
+      [...property.images]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((image) => this.toImageDto(image))
+    );
     return {
-      ...this.toSummaryDto(property),
+      ...summary,
       owner,
       description: property.description,
       address: property.address ?? null,
@@ -238,22 +253,24 @@ export class PropertiesQueryService {
       moderationStatus: property.moderationStatus,
       rejectionReason: property.rejectionReason,
       viewsCount: property.viewsCount,
-      images: [...property.images]
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((image) => this.toImageDto(image)),
+      images,
       updatedAt: property.updatedAt
     };
   }
 
-  private toImageDto(image: PropertyImage): { url: string; sortOrder: number } {
+  private async toImageDto(image: PropertyImage): Promise<{ url: string; sortOrder: number }> {
     return {
-      url: this.objectUrl(image.objectKey),
+      url: await this.mediaUrl(image.objectKey),
       sortOrder: image.sortOrder
     };
   }
 
   private objectUrl(objectKey: string): string {
     return this.objectStoreUrls.publicUrl(objectKey);
+  }
+
+  private mediaUrl(objectKey: string): Promise<string> {
+    return this.objectStoreUrls.mediaReadUrl(objectKey);
   }
 
   private encodeCursor(property: Property): string {

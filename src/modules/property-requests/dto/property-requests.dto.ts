@@ -12,12 +12,7 @@ import {
   Min
 } from 'class-validator';
 import { PropertyType } from '../../../common/enums/property-type.enum.js';
-import { IsEntityId } from '../../../common/validation/entity-id.decorator.js';
-import {
-  ContactMethod,
-  PropertyRequestStatus,
-  RequestType
-} from '../property-request.enums.js';
+import { ContactMethod, PropertyRequestStatus, RequestType } from '../property-request.enums.js';
 
 export class PropertyRequestCreateDto {
   @IsString()
@@ -34,11 +29,13 @@ export class PropertyRequestCreateDto {
   @IsEnum(RequestType)
   requestType!: RequestType;
 
-  @IsEntityId()
-  cityId!: string;
+  @IsString()
+  @MaxLength(120)
+  city!: string;
 
-  @IsEntityId()
-  areaId!: string;
+  @IsString()
+  @MaxLength(120)
+  area!: string;
 
   @Transform(({ value }) => Number(value))
   @IsNumber()
@@ -97,12 +94,14 @@ export class PropertyRequestUpdateDto {
   requestType?: RequestType;
 
   @IsOptional()
-  @IsEntityId()
-  cityId?: string;
+  @IsString()
+  @MaxLength(120)
+  city?: string;
 
   @IsOptional()
-  @IsEntityId()
-  areaId?: string;
+  @IsString()
+  @MaxLength(120)
+  area?: string;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))
@@ -162,12 +161,14 @@ export class PropertyRequestsFeedQueryDto {
   limit = 20;
 
   @IsOptional()
-  @IsEntityId()
-  cityId?: string;
+  @IsString()
+  @MaxLength(120)
+  city?: string;
 
   @IsOptional()
-  @IsEntityId()
-  areaId?: string;
+  @IsString()
+  @MaxLength(120)
+  area?: string;
 }
 
 export class MinePropertyRequestsQueryDto {

@@ -26,8 +26,8 @@ describe('SC-011 endpoint × role authorization matrix (e2e)', () => {
   let testApp: AuthTestApp;
   let sessions: Record<Exclude<RoleKey, 'anon'>, RoleSession>;
   let propertyId: string;
-  let cityId: string;
-  let areaId: string;
+  let city: string;
+  let area: string;
 
   beforeAll(async () => {
     testApp = await createAuthTestApp();
@@ -37,16 +37,16 @@ describe('SC-011 endpoint × role authorization matrix (e2e)', () => {
     const admin = await adminSession(testApp, 'u5558800004@test.local');
     sessions = { regular, broker, agency, admin };
 
-    cityId = (await seedCity(testApp.prisma, 'matrix-city')).id;
-    areaId = (await seedArea(testApp.prisma, cityId, 'matrix-area')).id;
+    city = (await seedCity(testApp.prisma, 'matrix-city')).id;
+    area = (await seedArea(testApp.prisma, city, 'matrix-area')).id;
     const created = await seedProperty(testApp.prisma, {
       ownerId: broker.user.id,
       title: 'Matrix Property',
       propertyType: 'apartment',
       listingType: 'rent',
       price: 1000,
-      cityId,
-      areaId,
+      city,
+      area,
       rooms: 2,
       furnished: 'unfurnished',
       createdAt: new Date(),

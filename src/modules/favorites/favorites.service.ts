@@ -12,8 +12,8 @@ export interface FavoritePropertySummaryDto {
   listingType: string;
   price: number;
   currency: string;
-  cityId: string;
-  areaId: string;
+  city: string;
+  area: string;
   rooms: number;
   sizeSqm: number;
   availabilityStatus: string;
@@ -21,7 +21,13 @@ export interface FavoritePropertySummaryDto {
   createdAt: Date;
 }
 
-type PropertyWithImages = Property & { images: PropertyImage[] };
+const propertyInclude = {
+  images: true
+} as const;
+
+type PropertyWithImages = Property & {
+  images: PropertyImage[];
+};
 
 @Injectable()
 export class FavoritesService {
@@ -75,15 +81,17 @@ export class FavoritesService {
               moderationStatus: ModerationStatus.active,
               ownerIsActive: true
             },
-            include: { images: true }
+            include: propertyInclude
           })
         : [];
     const propertyById = new Map(properties.map((property) => [property.id, property]));
 
-    const items = pageItems
-      .map((favorite) => propertyById.get(favorite.propertyId))
-      .filter((property): property is PropertyWithImages => Boolean(property))
-      .map((property) => this.toSummaryDto(property));
+    const items = await Promise.all(
+      pageItems
+        .map((favorite) => propertyById.get(favorite.propertyId))
+        .filter((property): property is PropertyWithImages => Boolean(property))
+        .map((property) => this.toSummaryDto(property))
+    );
 
     return {
       items,
@@ -104,7 +112,7 @@ export class FavoritesService {
     };
   }
 
-  private toSummaryDto(property: PropertyWithImages): FavoritePropertySummaryDto {
+  private async toSummaryDto(property: PropertyWithImages): Promise<FavoritePropertySummaryDto> {
     const primary = [...property.images].sort((a, b) => a.sortOrder - b.sortOrder)[0];
     return {
       id: property.id,
@@ -113,18 +121,18 @@ export class FavoritesService {
       listingType: property.listingType,
       price: decimalToNumber(property.price),
       currency: property.currency,
-      cityId: property.cityId,
-      areaId: property.areaId,
+      city: property.city,
+      area: property.area,
       rooms: property.rooms,
       sizeSqm: property.sizeSqm,
       availabilityStatus: property.availabilityStatus,
-      primaryImageUrl: primary ? this.objectUrl(primary.objectKey) : null,
+      primaryImageUrl: primary ? await this.mediaUrl(primary.objectKey) : null,
       createdAt: property.createdAt
     };
   }
 
-  private objectUrl(objectKey: string): string {
-    return this.objectStoreUrls.publicUrl(objectKey);
+  private mediaUrl(objectKey: string): Promise<string> {
+    return this.objectStoreUrls.mediaReadUrl(objectKey);
   }
 
   private encodeCursor(favorite: Favorite): string {

@@ -253,10 +253,6 @@ model Location {
   children          Location[]        @relation("LocationHierarchy")
   brokerProfiles    BrokerProfile[]
   agencyProfiles    AgencyProfile[]   @relation("AgencyPrimaryCity")
-  propertiesCity    Property[]        @relation("PropertyCity")
-  propertiesArea    Property[]        @relation("PropertyArea")
-  requestsCity      PropertyRequest[] @relation("RequestCity")
-  requestsArea      PropertyRequest[] @relation("RequestArea")
 
   @@unique([type, parentId, slug])
   @@index([type, isActive, name])
@@ -272,8 +268,8 @@ model Property {
   listingType        ListingType
   price              Decimal            @db.Decimal(19, 4)
   currency           String
-  cityId             String
-  areaId             String
+  city               String
+  area               String
   address            String?
   rooms              Int
   bathrooms          Int
@@ -291,13 +287,11 @@ model Property {
   updatedAt          DateTime           @updatedAt
 
   owner     User            @relation("PropertyOwner", fields: [ownerId], references: [id])
-  city      Location        @relation("PropertyCity", fields: [cityId], references: [id])
-  area      Location        @relation("PropertyArea", fields: [areaId], references: [id])
   images    PropertyImage[]
   favorites Favorite[]
 
   @@index([deletedAt, moderationStatus, availabilityStatus, createdAt(sort: Desc)])
-  @@index([deletedAt, moderationStatus, cityId, areaId, propertyType, listingType, price])
+  @@index([deletedAt, moderationStatus, city, area, propertyType, listingType, price])
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([moderationStatus, createdAt(sort: Desc)])
   @@map("properties")
@@ -325,8 +319,8 @@ model PropertyRequest {
   description   String
   propertyType  PropertyType
   requestType   RequestType
-  cityId        String
-  areaId        String
+  city          String
+  area          String
   minPrice      Decimal               @db.Decimal(19, 4)
   maxPrice      Decimal               @db.Decimal(19, 4)
   currency      String
@@ -341,8 +335,6 @@ model PropertyRequest {
   updatedAt     DateTime              @updatedAt
 
   requester     User           @relation(fields: [requesterId], references: [id])
-  city          Location       @relation("RequestCity", fields: [cityId], references: [id])
-  area          Location       @relation("RequestArea", fields: [areaId], references: [id])
   fanoutOutbox  FanoutOutbox?
   notifications Notification[]
 

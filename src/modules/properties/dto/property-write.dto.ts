@@ -13,13 +13,7 @@ import {
   Min
 } from 'class-validator';
 import { PropertyType } from '../../../common/enums/property-type.enum.js';
-import { IsEntityId } from '../../../common/validation/entity-id.decorator.js';
-import {
-  AvailabilityStatus,
-  Finishing,
-  FurnishedStatus,
-  ListingType
-} from '../property.enums.js';
+import { AvailabilityStatus, Finishing, FurnishedStatus, ListingType } from '../property.enums.js';
 
 export class PropertyCreateDto {
   @IsString()
@@ -45,11 +39,13 @@ export class PropertyCreateDto {
   @MaxLength(3)
   currency!: string;
 
-  @IsEntityId()
-  cityId!: string;
+  @IsString()
+  @MaxLength(120)
+  city!: string;
 
-  @IsEntityId()
-  areaId!: string;
+  @IsString()
+  @MaxLength(120)
+  area!: string;
 
   @IsOptional()
   @IsString()
@@ -114,12 +110,14 @@ export class PropertyUpdateDto {
   currency?: string;
 
   @IsOptional()
-  @IsEntityId()
-  cityId?: string;
+  @IsString()
+  @MaxLength(120)
+  city?: string;
 
   @IsOptional()
-  @IsEntityId()
-  areaId?: string;
+  @IsString()
+  @MaxLength(120)
+  area?: string;
 
   @IsOptional()
   @IsString()

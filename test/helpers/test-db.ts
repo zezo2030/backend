@@ -56,8 +56,8 @@ export interface SeedPropertyInput {
   propertyType: string;
   listingType: string;
   price: number;
-  cityId: string;
-  areaId: string;
+  city: string;
+  area: string;
   rooms: number;
   furnished: string;
   createdAt: Date;
@@ -77,8 +77,8 @@ export async function seedProperty(
       listingType: input.listingType as Prisma.PropertyCreateInput['listingType'],
       price: toDecimal(input.price),
       currency: 'USD',
-      cityId: input.cityId,
-      areaId: input.areaId,
+      city: input.city,
+      area: input.area,
       rooms: input.rooms,
       bathrooms: 2,
       sizeSqm: 150,

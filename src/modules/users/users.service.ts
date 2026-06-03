@@ -8,6 +8,7 @@ import type { User } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { ObjectStoreService } from '../../infra/objectstore/object-store.service.js';
 import type { SelectRoleDto, UpdateProfileDto } from './dto/users.dto.js';
 
 export interface UserSelf {
@@ -26,7 +27,8 @@ export interface UserSelf {
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly auditLogger: AuditLogger
+    private readonly auditLogger: AuditLogger,
+    private readonly objectStore: ObjectStoreService
   ) {}
 
   async getSelf(userId: string): Promise<UserSelf> {
@@ -87,6 +89,12 @@ export class UsersService {
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<UserSelf> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.deletedAt) throw new NotFoundException('User not found');
+    if (dto.avatarKey && !(await this.objectStore.isValidImage(dto.avatarKey))) {
+      throw new UnprocessableEntityException({
+        code: 'uploadInvalidImage',
+        message: 'Uploaded avatar is not a valid image'
+      });
+    }
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {

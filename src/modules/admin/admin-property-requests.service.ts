@@ -19,8 +19,8 @@ export interface AdminPropertyRequestDto {
   description: string;
   propertyType: string;
   requestType: string;
-  cityId: string;
-  areaId: string;
+  city: string;
+  area: string;
   minPrice: number;
   maxPrice: number;
   currency: string;
@@ -83,8 +83,8 @@ export class AdminPropertyRequestsService {
       description: request.description,
       propertyType: request.propertyType,
       requestType: request.requestType,
-      cityId: request.cityId,
-      areaId: request.areaId,
+      city: request.city,
+      area: request.area,
       minPrice: decimalToNumber(request.minPrice),
       maxPrice: decimalToNumber(request.maxPrice),
       currency: request.currency,
