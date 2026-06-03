@@ -1,0 +1,5 @@
+services:
+  fcm-stub:
+    image: wiremock/wiremock:3.6.0
+    ports:
+      - '8089:8080'

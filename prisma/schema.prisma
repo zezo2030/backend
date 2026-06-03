@@ -1,0 +1,484 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  RegularUser
+  Broker
+  Agency
+  Admin
+}
+
+enum PropertyType {
+  apartment
+  house
+  land
+  shop
+  villa
+  building
+}
+
+enum ListingType {
+  sale
+  rent
+}
+
+enum Finishing {
+  bare
+  semi_finished
+  finished
+  luxury
+}
+
+enum FurnishedStatus {
+  furnished
+  unfurnished
+  partially
+}
+
+enum ModerationStatus {
+  active
+  pending_review
+  rejected
+}
+
+enum AvailabilityStatus {
+  available
+  reserved
+  sold
+  rented
+}
+
+enum LocationType {
+  City
+  Area
+}
+
+enum RequestType {
+  buy
+  rent
+}
+
+enum ContactMethod {
+  call
+  whatsapp
+  in_app
+}
+
+enum PropertyRequestStatus {
+  open
+  in_progress
+  closed
+}
+
+enum NotificationType {
+  new_request_fanout
+  admin_broadcast
+  listing_status_change
+  report_resolved
+}
+
+enum DeviceType {
+  ios
+  android
+  web
+}
+
+enum ReportTargetType {
+  property
+  user
+  broker
+  agency
+}
+
+enum ReportStatus {
+  open
+  resolved
+  dismissed
+}
+
+enum ReportResolvedAction {
+  none
+  disabled_account
+  deleted_listing
+}
+
+enum FanoutOutboxStatus {
+  pending
+  in_progress
+  done
+  failed_permanently
+}
+
+enum BroadcastAudience {
+  all
+  regular_users
+  brokers
+  agencies
+}
+
+enum BroadcastOutboxStatus {
+  pending
+  in_progress
+  done
+  failed_permanently
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  displayName  String
+  phone        String?   @unique
+  avatarKey    String?
+  passwordHash String?
+  role         Role?
+  isActive     Boolean   @default(true)
+  isVerified   Boolean   @default(false)
+  tokenVersion Int       @default(0)
+  lastSeenAt   DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  brokerProfile       BrokerProfile?
+  agencyProfile       AgencyProfile?
+  refreshTokens       RefreshToken[]
+  ownedProperties     Property[]           @relation("PropertyOwner")
+  propertyRequests    PropertyRequest[]
+  favorites           Favorite[]
+  notifications       Notification[]
+  deviceTokens        DeviceToken[]
+  reportsFiled        Report[]               @relation("ReportReporter")
+  reportsResolved     Report[]               @relation("ReportResolver")
+  fanoutOutboxActor   BroadcastOutbox[]
+
+  @@index([role, isActive, deletedAt])
+  @@index([role, createdAt(sort: Desc)])
+  @@map("users")
+}
+
+model BrokerProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  officeName    String
+  bio           String?
+  primaryCityId String?
+  licenseNumber String?
+  isApproved    Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryCity Location? @relation(fields: [primaryCityId], references: [id])
+
+  @@index([primaryCityId])
+  @@map("broker_profiles")
+}
+
+model AgencyProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  officeName    String
+  bio           String?
+  primaryCityId String?
+  licenseNumber String?
+  isApproved    Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryCity Location? @relation("AgencyPrimaryCity", fields: [primaryCityId], references: [id])
+
+  @@index([primaryCityId])
+  @@map("agency_profiles")
+}
+
+model RefreshToken {
+  id                  String    @id @default(cuid())
+  userId              String
+  tokenHash           String    @unique
+  deviceId            String?
+  userAgent           String?
+  issuedAt            DateTime
+  expiresAt           DateTime
+  revokedAt           DateTime?
+  replacedByTokenHash String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetChallenge {
+  id                  String    @id @default(cuid())
+  email               String
+  codeHash            String
+  attemptsRemaining   Int       @default(5)
+  issuedAt            DateTime
+  expiresAt           DateTime
+  consumedAt          DateTime?
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([email, issuedAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("password_reset_challenges")
+}
+
+model Location {
+  id        String       @id @default(cuid())
+  name      String
+  type      LocationType
+  parentId  String?
+  slug      String
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  parent            Location?         @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children          Location[]        @relation("LocationHierarchy")
+  brokerProfiles    BrokerProfile[]
+  agencyProfiles    AgencyProfile[]   @relation("AgencyPrimaryCity")
+  propertiesCity    Property[]        @relation("PropertyCity")
+  propertiesArea    Property[]        @relation("PropertyArea")
+  requestsCity      PropertyRequest[] @relation("RequestCity")
+  requestsArea      PropertyRequest[] @relation("RequestArea")
+
+  @@unique([type, parentId, slug])
+  @@index([type, isActive, name])
+  @@map("locations")
+}
+
+model Property {
+  id                 String             @id @default(cuid())
+  ownerId            String
+  title              String
+  description        String
+  propertyType       PropertyType
+  listingType        ListingType
+  price              Decimal            @db.Decimal(19, 4)
+  currency           String
+  cityId             String
+  areaId             String
+  address            String?
+  rooms              Int
+  bathrooms          Int
+  sizeSqm            Float
+  floor              Int?
+  finishing          Finishing?
+  furnished          FurnishedStatus?
+  moderationStatus   ModerationStatus
+  availabilityStatus AvailabilityStatus @default(available)
+  rejectionReason    String?
+  viewsCount         Int                @default(0)
+  ownerIsActive      Boolean            @default(true)
+  deletedAt          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  owner     User            @relation("PropertyOwner", fields: [ownerId], references: [id])
+  city      Location        @relation("PropertyCity", fields: [cityId], references: [id])
+  area      Location        @relation("PropertyArea", fields: [areaId], references: [id])
+  images    PropertyImage[]
+  favorites Favorite[]
+
+  @@index([deletedAt, moderationStatus, availabilityStatus, createdAt(sort: Desc)])
+  @@index([deletedAt, moderationStatus, cityId, areaId, propertyType, listingType, price])
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([moderationStatus, createdAt(sort: Desc)])
+  @@map("properties")
+}
+
+model PropertyImage {
+  id          String   @id @default(cuid())
+  propertyId  String
+  objectKey   String
+  contentType String
+  sizeBytes   Int
+  sortOrder   Int
+  uploadedAt  DateTime
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, sortOrder])
+  @@map("property_images")
+}
+
+model PropertyRequest {
+  id            String                @id @default(cuid())
+  requesterId   String
+  title         String
+  description   String
+  propertyType  PropertyType
+  requestType   RequestType
+  cityId        String
+  areaId        String
+  minPrice      Decimal               @db.Decimal(19, 4)
+  maxPrice      Decimal               @db.Decimal(19, 4)
+  currency      String
+  requiredRooms Int
+  approxSizeSqm Float?
+  isUrgent      Boolean               @default(false)
+  contactMethod ContactMethod
+  status        PropertyRequestStatus @default(open)
+  expiresAt     DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  requester     User           @relation(fields: [requesterId], references: [id])
+  city          Location       @relation("RequestCity", fields: [cityId], references: [id])
+  area          Location       @relation("RequestArea", fields: [areaId], references: [id])
+  fanoutOutbox  FanoutOutbox?
+  notifications Notification[]
+
+  @@index([deletedAt, status, expiresAt, createdAt(sort: Desc)])
+  @@index([requesterId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("property_requests")
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("favorites")
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  recipientUserId String
+  type            NotificationType
+  title           String
+  body            String
+  data            Json?
+  sourceRequestId String?
+  readAt          DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  recipient     User             @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  sourceRequest PropertyRequest? @relation(fields: [sourceRequestId], references: [id])
+
+  @@index([recipientUserId, createdAt(sort: Desc)])
+  @@index([recipientUserId, readAt])
+  @@map("notifications")
+}
+
+model DeviceToken {
+  id         String     @id @default(cuid())
+  userId     String
+  token      String     @unique
+  deviceType DeviceType
+  isActive   Boolean    @default(true)
+  lastSeenAt DateTime
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("device_tokens")
+}
+
+model Report {
+  id              String                @id @default(cuid())
+  reporterId      String
+  targetType      ReportTargetType
+  targetId        String
+  targetExistsAt  DateTime?
+  targetDeleted   Boolean               @default(false)
+  reason          String
+  status          ReportStatus          @default(open)
+  resolvedById    String?
+  resolvedAction  ReportResolvedAction?
+  resolutionNote  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  reporter   User  @relation("ReportReporter", fields: [reporterId], references: [id])
+  resolvedBy User? @relation("ReportResolver", fields: [resolvedById], references: [id])
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([targetType, targetId, status])
+  @@map("reports")
+}
+
+model FanoutOutbox {
+  id             String             @id @default(cuid())
+  requestId      String             @unique
+  status         FanoutOutboxStatus @default(pending)
+  leasedBy       String?
+  leasedUntil    DateTime?
+  attempts       Int                @default(0)
+  lastError      String?
+  recipientCount Int?
+  processedCount Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  request PropertyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([status, leasedUntil, createdAt])
+  @@map("fanout_outbox")
+}
+
+model BroadcastOutbox {
+  id             String                @id @default(cuid())
+  actorUserId    String
+  audience       BroadcastAudience
+  title          String
+  body           String
+  data           Json?
+  status         BroadcastOutboxStatus @default(pending)
+  leasedBy       String?
+  leasedUntil    DateTime?
+  attempts       Int                   @default(0)
+  lastError      String?
+  recipientCount Int?
+  processedCount Int                   @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@index([status, leasedUntil, createdAt])
+  @@map("broadcast_outbox")
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  targetId    String?
+  targetType  String?
+  requestId   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([action, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@map("audit_events")
+}
