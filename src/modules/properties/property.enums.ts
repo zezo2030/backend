@@ -14,3 +14,5 @@ export interface PropertyImageRecord {
   sortOrder: number;
   uploadedAt: Date;
 }
+
+export type PropertyVideoRecord = PropertyImageRecord;

@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { FanoutOutboxStatus } from './fanout.enums.js';
 
 @Injectable()
 export class FanoutReaper {
+  private readonly logger = new Logger(FanoutReaper.name);
   private timer: NodeJS.Timeout | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -19,7 +20,10 @@ export class FanoutReaper {
   start(intervalMs = 30000): void {
     if (this.timer) return;
     this.timer = setInterval(() => {
-      void this.reapExpiredLeases();
+      this.reapExpiredLeases().catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`reapExpiredLeases failed: ${message}`);
+      });
     }, intervalMs);
   }
 

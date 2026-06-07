@@ -3,8 +3,7 @@ import { IsEnum, IsObject, IsOptional, IsString, MaxLength } from 'class-validat
 export enum BroadcastAudience {
   All = 'all',
   RegularUsers = 'regular_users',
-  Brokers = 'brokers',
-  Agencies = 'agencies'
+  Brokers = 'brokers'
 }
 
 export class AdminBroadcastDto {

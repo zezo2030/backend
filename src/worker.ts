@@ -3,19 +3,22 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { FanoutReaper } from './modules/fanout/fanout.reaper.js';
 import { FanoutWorker } from './modules/fanout/fanout.worker.js';
+import { BroadcastWorker } from './modules/admin/broadcast.worker.js';
 import { ReportTargetReconciler } from './modules/reports/report-target-reconciler.service.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
-  const worker = app.get(FanoutWorker);
+  const fanoutWorker = app.get(FanoutWorker);
+  const broadcastWorker = app.get(BroadcastWorker);
   const reaper = app.get(FanoutReaper);
   const reportReconciler = app.get(ReportTargetReconciler);
 
   reaper.start();
   reportReconciler.start();
   const shutdown = async () => {
-    worker.stop();
+    fanoutWorker.stop();
+    broadcastWorker.stop();
     reaper.stop();
     reportReconciler.stop();
     await app.close();
@@ -23,7 +26,8 @@ async function bootstrap(): Promise<void> {
   };
   process.once('SIGTERM', () => void shutdown());
   process.once('SIGINT', () => void shutdown());
-  await worker.runLoop();
+  void broadcastWorker.runLoop();
+  await fanoutWorker.runLoop();
 }
 
 void bootstrap();

@@ -20,8 +20,7 @@ type OutboxJob = {
 const AUDIENCE_ROLE_FILTER: Record<BroadcastAudience, Role[] | null> = {
   [BroadcastAudience.All]: null,
   [BroadcastAudience.RegularUsers]: [Role.RegularUser],
-  [BroadcastAudience.Brokers]: [Role.Broker],
-  [BroadcastAudience.Agencies]: [Role.Agency]
+  [BroadcastAudience.Brokers]: [Role.Broker]
 };
 
 @Injectable()
@@ -46,8 +45,16 @@ export class BroadcastWorker {
   async runLoop(intervalMs = 1000): Promise<void> {
     this.running = true;
     while (this.running) {
-      const processed = await this.drainOnce();
-      if (!processed) await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      try {
+        const processed = await this.drainOnce();
+        if (!processed) await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      } catch (error) {
+        // A transient DB error (e.g. pool exhaustion) must not kill the process.
+        // Log and back off, then keep looping.
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`runLoop iteration failed, backing off: ${message}`);
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
     }
   }
 

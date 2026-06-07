@@ -101,18 +101,6 @@ export class ReportsService {
       });
       return Boolean(user);
     }
-    if (type === ReportTargetType.agency) {
-      const profile = await this.prisma.agencyProfile.findUnique({
-        where: { userId: targetId },
-        select: { id: true }
-      });
-      if (!profile) return false;
-      const user = await this.prisma.user.findFirst({
-        where: { id: targetId, deletedAt: null },
-        select: { id: true }
-      });
-      return Boolean(user);
-    }
     throw new NotFoundException('Unknown target type');
   }
 }

@@ -11,7 +11,6 @@ datasource db {
 enum Role {
   RegularUser
   Broker
-  Agency
   Admin
 }
 
@@ -94,7 +93,6 @@ enum ReportTargetType {
   property
   user
   broker
-  agency
 }
 
 enum ReportStatus {
@@ -120,7 +118,6 @@ enum BroadcastAudience {
   all
   regular_users
   brokers
-  agencies
 }
 
 enum BroadcastOutboxStatus {
@@ -132,7 +129,7 @@ enum BroadcastOutboxStatus {
 
 model User {
   id           String    @id @default(cuid())
-  email        String    @unique
+  email        String?   @unique
   displayName  String
   phone        String?   @unique
   avatarKey    String?
@@ -147,7 +144,6 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   brokerProfile       BrokerProfile?
-  agencyProfile       AgencyProfile?
   refreshTokens       RefreshToken[]
   ownedProperties     Property[]           @relation("PropertyOwner")
   propertyRequests    PropertyRequest[]
@@ -180,25 +176,6 @@ model BrokerProfile {
 
   @@index([primaryCityId])
   @@map("broker_profiles")
-}
-
-model AgencyProfile {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  officeName    String
-  bio           String?
-  primaryCityId String?
-  licenseNumber String?
-  isApproved    Boolean   @default(false)
-  isFeatured    Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  primaryCity Location? @relation("AgencyPrimaryCity", fields: [primaryCityId], references: [id])
-
-  @@index([primaryCityId])
-  @@map("agency_profiles")
 }
 
 model RefreshToken {
@@ -252,7 +229,6 @@ model Location {
   parent            Location?         @relation("LocationHierarchy", fields: [parentId], references: [id])
   children          Location[]        @relation("LocationHierarchy")
   brokerProfiles    BrokerProfile[]
-  agencyProfiles    AgencyProfile[]   @relation("AgencyPrimaryCity")
 
   @@unique([type, parentId, slug])
   @@index([type, isActive, name])
@@ -288,6 +264,7 @@ model Property {
 
   owner     User            @relation("PropertyOwner", fields: [ownerId], references: [id])
   images    PropertyImage[]
+  videos    PropertyVideo[]
   favorites Favorite[]
 
   @@index([deletedAt, moderationStatus, availabilityStatus, createdAt(sort: Desc)])
@@ -310,6 +287,21 @@ model PropertyImage {
 
   @@index([propertyId, sortOrder])
   @@map("property_images")
+}
+
+model PropertyVideo {
+  id          String   @id @default(cuid())
+  propertyId  String
+  objectKey   String
+  contentType String
+  sizeBytes   Int
+  sortOrder   Int
+  uploadedAt  DateTime
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, sortOrder])
+  @@map("property_videos")
 }
 
 model PropertyRequest {

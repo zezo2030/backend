@@ -11,7 +11,7 @@ export interface RoleSession extends AuthResponseBody {}
 export async function sessionWithRole(
   testApp: AuthTestApp,
   email: string,
-  role: 'RegularUser' | 'Broker' | 'Agency'
+  role: 'RegularUser' | 'Broker'
 ): Promise<RoleSession> {
   const first = await issueSession(testApp, email);
   await request(httpServer(testApp))

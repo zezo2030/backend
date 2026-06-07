@@ -6,7 +6,14 @@ import { Public } from '../../common/auth/public.decorator.js';
 import { SelectRoleDto } from '../users/dto/users.dto.js';
 import { UsersService } from '../users/users.service.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto, LogoutDto, RefreshDto, RegisterDto } from './dto/auth.dto.js';
+import {
+  LoginDto,
+  LogoutDto,
+  PhoneLoginDto,
+  PhoneRegisterDto,
+  RefreshDto,
+  RegisterDto
+} from './dto/auth.dto.js';
 import {
   PasswordResetConfirmDto,
   PasswordResetRequestDto,
@@ -40,6 +47,35 @@ export class AuthController {
   @HttpCode(200)
   login(@Body() dto: LoginDto, @Headers('user-agent') userAgent?: string) {
     return this.authService.login(dto.email, dto.password, dto.deviceId, userAgent);
+  }
+
+  // Primary auth for the mobile app: phone number + password (no OTP).
+  @Public()
+  @Post('phone/register')
+  @HttpCode(201)
+  registerWithPhone(
+    @Body() dto: PhoneRegisterDto,
+    @Headers('user-agent') userAgent?: string
+  ) {
+    return this.authService.registerWithPhone(
+      dto.phone,
+      dto.password,
+      dto.displayName,
+      dto.deviceId,
+      userAgent
+    );
+  }
+
+  @Public()
+  @Post('phone/login')
+  @HttpCode(200)
+  loginWithPhone(@Body() dto: PhoneLoginDto, @Headers('user-agent') userAgent?: string) {
+    return this.authService.loginWithPhone(
+      dto.phone,
+      dto.password,
+      dto.deviceId,
+      userAgent
+    );
   }
 
   @Public()

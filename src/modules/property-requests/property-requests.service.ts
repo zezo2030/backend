@@ -214,7 +214,6 @@ export class PropertyRequestsService {
     return (
       request.requesterId === callerId ||
       callerRole === Role.Broker ||
-      callerRole === Role.Agency ||
       callerRole === Role.Admin
     );
   }
@@ -232,13 +231,6 @@ export class PropertyRequestsService {
     let officeName: string | null = null;
     if (user.role === Role.Broker) {
       const profile = await this.prisma.brokerProfile.findUnique({
-        where: { userId: user.id },
-        select: { officeName: true }
-      });
-      officeName = profile?.officeName ?? null;
-    }
-    if (user.role === Role.Agency) {
-      const profile = await this.prisma.agencyProfile.findUnique({
         where: { userId: user.id },
         select: { officeName: true }
       });

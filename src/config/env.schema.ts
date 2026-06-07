@@ -27,6 +27,7 @@ export const envValidationSchema = Joi.object({
   SUPABASE_STORAGE_BUCKET: Joi.string().required(),
   SUPABASE_STORAGE_PRESIGN_TTL_SEC: Joi.number().integer().positive().default(600),
   IMAGE_MAX_BYTES: Joi.number().integer().positive().default(8388608),
+  VIDEO_MAX_BYTES: Joi.number().integer().positive().default(104857600),
   DEV_RUN_WORKER: Joi.boolean().default(false),
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')

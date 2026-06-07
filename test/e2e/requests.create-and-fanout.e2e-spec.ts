@@ -23,9 +23,7 @@ describe('property requests create and fanout (e2e)', () => {
   it('returns 202 quickly, writes outbox, and fanout creates recipient notifications', async () => {
     const requester = await sessionWithRole('u5552000001@test.local', 'RegularUser');
     const broker = await sessionWithRole('u5552000002@test.local', 'Broker');
-    const agency = await sessionWithRole('u5552000003@test.local', 'Agency');
     await seedToken(broker.user.id, 'broker-token');
-    await seedToken(agency.user.id, 'agency-token');
 
     const startedAt = Date.now();
     const payload = await makePropertyRequestPayload(testApp.prisma);
@@ -48,10 +46,10 @@ describe('property requests create and fanout (e2e)', () => {
       await testApp.prisma.notification.count({
         where: { sourceRequestId: requestId }
       })
-    ).toBe(2);
+    ).toBe(1);
   });
 
-  async function sessionWithRole(email: string, role: 'RegularUser' | 'Broker' | 'Agency') {
+  async function sessionWithRole(email: string, role: 'RegularUser' | 'Broker') {
     const first = await issueSession(testApp, email);
     await request(httpServer(testApp))
       .post('/api/v1/auth/select-role')

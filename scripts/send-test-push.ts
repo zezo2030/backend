@@ -55,6 +55,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  initFirebase();
+  const messaging = getMessaging();
+  const ANDROID_CHANNEL_ID = 'requests';
   const title = 'اختبار Firebase';
   const body = 'إشعار تجريبي من الـ backend — إذا وصلتك الرسالة فـ FCM شغال ✅';
   const notification = await prisma.notification.create({
@@ -68,28 +71,38 @@ async function main(): Promise<void> {
     }
   });
 
-  initFirebase();
-  const messaging = getMessaging();
-  const targets = tokens.map(({ token }) => ({
-    token,
-    data: {
-      type: NotificationType.admin_broadcast,
-      title,
-      body,
-      targetKind: 'user',
-      targetId: user.id,
-      notificationId: notification.id
-    }
-  }));
-
   const response = await messaging.sendEach(
-    targets.map(({ token, data }) => ({
+    tokens.map(({ token }) => ({
       token,
-      data,
-      android: { priority: 'high' as const },
+      notification: { title, body },
+      data: {
+        type: NotificationType.admin_broadcast,
+        title,
+        body,
+        targetKind: 'user',
+        targetId: user.id,
+        notificationId: notification.id
+      },
+      android: {
+        priority: 'high' as const,
+        ttl: 86400000,
+        notification: {
+          channelId: ANDROID_CHANNEL_ID,
+          priority: 'high' as const,
+          visibility: 'public' as const,
+          defaultSound: true,
+          defaultVibrateTimings: true
+        }
+      },
       apns: {
         headers: { 'apns-priority': '10' },
-        payload: { aps: { contentAvailable: true } }
+        payload: {
+          aps: {
+            alert: { title, body },
+            sound: 'default',
+            contentAvailable: true
+          }
+        }
       }
     }))
   );

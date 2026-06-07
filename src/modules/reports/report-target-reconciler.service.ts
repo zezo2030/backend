@@ -23,8 +23,7 @@ export class ReportTargetReconciler {
       .filter(
         (r) =>
           r.targetType === ReportTargetType.user ||
-          r.targetType === ReportTargetType.broker ||
-          r.targetType === ReportTargetType.agency
+          r.targetType === ReportTargetType.broker
       )
       .map((r) => r.targetId);
 

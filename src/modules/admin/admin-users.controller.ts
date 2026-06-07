@@ -27,4 +27,12 @@ export class AdminUsersController {
   ) {
     return this.adminUsers.setStatus(id, dto.isActive, user.sub, dto.reason);
   }
+
+  @Patch(':id/approve-broker')
+  approveBroker(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.adminUsers.approveBroker(id, user.sub);
+  }
 }

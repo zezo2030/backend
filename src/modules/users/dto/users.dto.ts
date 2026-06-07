@@ -10,10 +10,10 @@ import {
 import { Role } from '../../../common/enums/role.enum.js';
 
 export class SelectRoleDto {
-  @IsIn([Role.RegularUser, Role.Broker, Role.Agency])
-  role!: Role.RegularUser | Role.Broker | Role.Agency;
+  @IsIn([Role.RegularUser, Role.Broker])
+  role!: Role.RegularUser | Role.Broker;
 
-  @ValidateIf((dto: SelectRoleDto) => dto.role === Role.Broker || dto.role === Role.Agency)
+  @ValidateIf((dto: SelectRoleDto) => dto.role === Role.Broker)
   @IsString()
   @MinLength(1)
   @MaxLength(120)

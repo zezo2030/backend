@@ -29,11 +29,19 @@ export class OrphanCleanupService {
     if (stale.length === 0) return { deleted: 0 };
 
     const staleKeys = stale.map((item) => item.objectKey);
-    const referenced = await this.prisma.propertyImage.findMany({
-      where: { objectKey: { in: staleKeys } },
-      select: { objectKey: true }
-    });
-    const referencedSet = new Set(referenced.map((row) => row.objectKey));
+    const [referencedImages, referencedVideos] = await Promise.all([
+      this.prisma.propertyImage.findMany({
+        where: { objectKey: { in: staleKeys } },
+        select: { objectKey: true }
+      }),
+      this.prisma.propertyVideo.findMany({
+        where: { objectKey: { in: staleKeys } },
+        select: { objectKey: true }
+      })
+    ]);
+    const referencedSet = new Set(
+      [...referencedImages, ...referencedVideos].map((row) => row.objectKey)
+    );
     const orphans = stale.filter((item) => !referencedSet.has(item.objectKey));
     if (orphans.length === 0) return { deleted: 0 };
 

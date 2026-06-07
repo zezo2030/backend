@@ -21,6 +21,8 @@ export interface UserSelf {
   isActive: boolean;
   isVerified: boolean;
   createdAt: Date;
+  isApproved?: boolean;
+  officeName?: string | null;
 }
 
 @Injectable()
@@ -32,7 +34,10 @@ export class UsersService {
   ) {}
 
   async getSelf(userId: string): Promise<UserSelf> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { brokerProfile: true }
+    });
     if (!user || user.deletedAt) throw new NotFoundException('User not found');
     return this.toSelf(user);
   }
@@ -42,13 +47,14 @@ export class UsersService {
     if (!user || user.deletedAt) throw new NotFoundException('User not found');
     if (user.role) throw new ConflictException('Role already selected');
 
-    if ((dto.role === Role.Broker || dto.role === Role.Agency) && !dto.officeName?.trim()) {
-      throw new UnprocessableEntityException('officeName is required for broker and agency roles');
+    if (dto.role === Role.Broker && !dto.officeName?.trim()) {
+      throw new UnprocessableEntityException('officeName is required for broker role');
     }
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { role: dto.role }
+      data: { role: dto.role },
+      include: { brokerProfile: true }
     });
 
     if (dto.role === Role.Broker) {
@@ -62,17 +68,11 @@ export class UsersService {
         },
         update: { officeName: dto.officeName!.trim() }
       });
-    } else if (dto.role === Role.Agency) {
-      await this.prisma.agencyProfile.upsert({
-        where: { userId },
-        create: {
-          userId,
-          officeName: dto.officeName!.trim(),
-          isApproved: false,
-          isFeatured: false
-        },
-        update: { officeName: dto.officeName!.trim() }
+      const finalUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { brokerProfile: true }
       });
+      return this.toSelf(finalUser!);
     }
 
     await this.auditLogger.log({
@@ -101,7 +101,8 @@ export class UsersService {
         ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(dto.avatarKey !== undefined ? { avatarKey: dto.avatarKey } : {})
-      }
+      },
+      include: { brokerProfile: true }
     });
     return this.toSelf(updated);
   }
@@ -127,17 +128,19 @@ export class UsersService {
     });
   }
 
-  toSelf(user: User): UserSelf {
+  toSelf(user: User & { brokerProfile?: any }): UserSelf {
     return {
       id: user.id,
-      email: user.email,
+      email: user.email ?? '',
       displayName: user.displayName,
       phone: user.phone ?? null,
       avatarUrl: null,
       role: user.role as Role | null,
       isActive: user.isActive,
       isVerified: user.isVerified,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
+      isApproved: user.brokerProfile?.isApproved ?? false,
+      officeName: user.brokerProfile?.officeName ?? null
     };
   }
 }

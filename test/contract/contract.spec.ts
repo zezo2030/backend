@@ -164,7 +164,12 @@ describe('OpenAPI contract conformance', () => {
     const presign = await request(httpServer(testApp))
       .post('/api/v1/media/uploads')
       .set('Authorization', `Bearer ${broker.accessToken}`)
-      .send({ items: [{ contentType: 'image/jpeg', sizeBytes: 2048 }] });
+      .send({
+        items: [
+          { contentType: 'image/jpeg', sizeBytes: 2048 },
+          { contentType: 'video/mp4', sizeBytes: 4194304 }
+        ]
+      });
     expect(presign.status).toBe(201);
     assertConformant('POST /media/uploads', presign);
   });

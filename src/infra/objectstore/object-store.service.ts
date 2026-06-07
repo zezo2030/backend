@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { isSupportedImage } from './image-magic.js';
+import { isSupportedVideo } from './video-magic.js';
 
 @Injectable()
 export class ObjectStoreService {
@@ -77,6 +78,15 @@ export class ObjectStoreService {
   async isValidImage(objectKey: string): Promise<boolean> {
     const buf = await this.peekBytes(objectKey, 16);
     return buf !== null && isSupportedImage(buf);
+  }
+
+  /**
+   * Verify the stored object is a real video by its magic bytes (the `ftyp` box),
+   * not its client-supplied Content-Type. Mirrors {@link isValidImage}.
+   */
+  async isValidVideo(objectKey: string): Promise<boolean> {
+    const buf = await this.peekBytes(objectKey, 16);
+    return buf !== null && isSupportedVideo(buf);
   }
 
   async deleteObjects(objectKeys: string[]): Promise<void> {

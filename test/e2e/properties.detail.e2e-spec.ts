@@ -29,7 +29,7 @@ describe('properties detail (e2e)', () => {
     await request(httpServer(testApp))
       .post('/api/v1/auth/select-role')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ role: 'Agency', officeName: 'Detail Agency' })
+      .send({ role: 'Broker', officeName: 'Detail Broker Office' })
       .expect(200);
 
     const city = await seedCity(testApp.prisma, 'detail-city');
@@ -66,7 +66,7 @@ describe('properties detail (e2e)', () => {
         const responseBody = body as PropertyDetailBody;
         expect(responseBody.availabilityStatus).toBe('rented');
         expect(responseBody.viewsCount).toBe(3);
-        expect(responseBody.owner.officeName).toBe('Detail Agency');
+        expect(responseBody.owner.officeName).toBe('Detail Broker Office');
         expect(responseBody.owner.phone).toBeUndefined();
         expect(responseBody.owner.email).toBeUndefined();
       });

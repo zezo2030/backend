@@ -31,6 +31,98 @@ export class AuthService {
     private readonly auditLogger: AuditLogger
   ) {}
 
+  /**
+   * Phone + password registration. Mirrors email register but keyed on the
+   * E.164 phone number; no SMS/OTP — the password is the sole credential.
+   */
+  async registerWithPhone(
+    phone: string,
+    password: string,
+    displayName: string,
+    deviceId?: string,
+    userAgent?: string
+  ): Promise<AuthSession> {
+    const normalized = phone.trim();
+    const existing = await this.prisma.user.findFirst({
+      where: { phone: normalized, deletedAt: null },
+      select: { id: true, passwordHash: true, displayName: true }
+    });
+    if (existing?.passwordHash) {
+      throw new ConflictException('An account with this phone already exists');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    let user: User;
+    if (existing) {
+      user = await this.prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          passwordHash,
+          displayName: existing.displayName || displayName.trim()
+        }
+      });
+    } else {
+      user = await this.prisma.user.create({
+        data: {
+          phone: normalized,
+          displayName: displayName.trim(),
+          passwordHash,
+          role: null,
+          isActive: true,
+          isVerified: false,
+          tokenVersion: 0
+        }
+      });
+    }
+
+    const session = await this.issueSession(user, deviceId, userAgent);
+    await this.auditLogger.log({
+      actorUserId: user.id,
+      action: 'auth.register',
+      targetType: 'user',
+      targetId: user.id,
+      metadata: { method: 'phone_password' }
+    });
+    return session;
+  }
+
+  /** Phone + password sign-in. */
+  async loginWithPhone(
+    phone: string,
+    password: string,
+    deviceId?: string,
+    userAgent?: string
+  ): Promise<AuthSession> {
+    const normalized = phone.trim();
+    const user = await this.prisma.user.findFirst({
+      where: { phone: normalized, deletedAt: null }
+    });
+    const hash =
+      user?.passwordHash ?? '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinva';
+    const passwordMatches = await bcrypt.compare(password, hash);
+    if (!user || !user.passwordHash || !passwordMatches) {
+      throw new UnauthorizedException('Invalid phone or password');
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is disabled');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeenAt: new Date() }
+    });
+
+    const session = await this.issueSession(updated, deviceId, userAgent);
+    await this.auditLogger.log({
+      actorUserId: user.id,
+      action: 'auth.login',
+      targetType: 'user',
+      targetId: user.id,
+      metadata: { method: 'phone_password' }
+    });
+    return session;
+  }
+
   async register(
     email: string,
     password: string,
@@ -170,7 +262,7 @@ export class AuthService {
       targetId: user.id
     });
 
-    return this.sessionWithRefresh(user, newRawToken);
+    return await this.sessionWithRefresh(user, newRawToken);
   }
 
   async logout(userId: string, rawRefreshToken: string): Promise<void> {
@@ -213,21 +305,25 @@ export class AuthService {
         )
       }
     });
-    return this.sessionWithRefresh(user, refreshToken);
+    return await this.sessionWithRefresh(user, refreshToken);
   }
 
-  private sessionWithRefresh(user: User, refreshToken: string): AuthSession {
+  private async sessionWithRefresh(user: User, refreshToken: string): Promise<AuthSession> {
     const expiresInSec = this.config.get<number>('jwt.accessTtlSec', 900);
     const accessToken = this.jwtService.sign(
       { sub: user.id, role: user.role, tokenVersion: user.tokenVersion },
       { expiresIn: expiresInSec }
     );
+    const userWithProfile = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: { brokerProfile: true }
+    });
     return {
       accessToken,
       refreshToken,
       expiresInSec,
       roleSelectionRequired: user.role === null,
-      user: this.usersService.toSelf(user)
+      user: this.usersService.toSelf(userWithProfile!)
     };
   }
 

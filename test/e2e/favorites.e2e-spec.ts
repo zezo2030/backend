@@ -77,7 +77,7 @@ describe('favorites (e2e)', () => {
     await request(httpServer(testApp)).put(`/api/v1/favorites/${propertyId}`).expect(401);
   });
 
-  async function sessionWithRole(email: string, role: 'RegularUser' | 'Broker' | 'Agency') {
+  async function sessionWithRole(email: string, role: 'RegularUser' | 'Broker') {
     const first = await issueSession(testApp, email);
     await request(httpServer(testApp))
       .post('/api/v1/auth/select-role')

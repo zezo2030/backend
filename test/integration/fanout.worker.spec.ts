@@ -27,14 +27,14 @@ describe('FanoutWorker (integration)', () => {
     await truncateAllTables(testApp.prisma);
   });
 
-  it('enumerates active brokers/agencies, is idempotent, reaps leases, and invalidates dead tokens', async () => {
+  it('enumerates active brokers, is idempotent, reaps leases, and invalidates dead tokens', async () => {
     const requesterId = await seedUser(Role.RegularUser, 'u5551000001@test.local');
     const brokerId = await seedUser(Role.Broker, 'u5551000002@test.local');
-    const agencyId = await seedUser(Role.Agency, 'u5551000003@test.local');
+    const broker2Id = await seedUser(Role.Broker, 'u5551000003@test.local');
     await seedUser(Role.RegularUser, 'u5551000004@test.local');
     await seedUser(Role.Broker, 'u5551000005@test.local', false);
     await seedToken(brokerId, 'broker-token');
-    await seedToken(agencyId, 'agency-token');
+    await seedToken(broker2Id, 'dead-broker-token');
 
     const propertyRequestId = await seedRequest(requesterId);
     await testApp.prisma.fanoutOutbox.create({
@@ -50,8 +50,8 @@ describe('FanoutWorker (integration)', () => {
       Promise.resolve(
         targets.map(({ token }) => ({
           token,
-          success: token !== 'agency-token',
-          permanentFailure: token === 'agency-token'
+          success: token !== 'dead-broker-token',
+          permanentFailure: token === 'dead-broker-token'
         }))
       );
 
@@ -62,12 +62,12 @@ describe('FanoutWorker (integration)', () => {
       await testApp.prisma.notification.count({
         where: {
           sourceRequestId: propertyRequestId,
-          recipientUserId: { in: [brokerId, agencyId] }
+          recipientUserId: { in: [brokerId, broker2Id] }
         }
       })
     ).toBe(2);
     expect(
-      await testApp.prisma.deviceToken.findFirst({ where: { token: 'agency-token' } })
+      await testApp.prisma.deviceToken.findFirst({ where: { token: 'dead-broker-token' } })
     ).toMatchObject({ isActive: false });
     expect(
       await testApp.prisma.fanoutOutbox.findUnique({ where: { requestId: propertyRequestId } })
@@ -118,9 +118,7 @@ describe('FanoutWorker (integration)', () => {
         tokenVersion: 0,
         ...(role === Role.Broker
           ? { brokerProfile: { create: { officeName: `${role} Office` } } }
-          : role === Role.Agency
-            ? { agencyProfile: { create: { officeName: `${role} Office` } } }
-            : {})
+          : {})
       }
     });
     return user.id;

@@ -72,12 +72,11 @@ export class AdminReportsService {
       if (action === ReportResolveActionDto.DisabledAccount) {
         if (
           report.targetType !== ReportTargetType.user &&
-          report.targetType !== ReportTargetType.broker &&
-          report.targetType !== ReportTargetType.agency
+          report.targetType !== ReportTargetType.broker
         ) {
           throw new UnprocessableEntityException({
             code: 'reportActionMismatch',
-            message: 'disabled_account requires user/broker/agency target'
+            message: 'disabled_account requires user/broker target'
           });
         }
         const targetUser = await tx.user.findUnique({ where: { id: report.targetId } });

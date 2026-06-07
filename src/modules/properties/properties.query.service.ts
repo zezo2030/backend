@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma, Property, PropertyImage } from '@prisma/client';
+import type { Prisma, Property, PropertyImage, PropertyVideo } from '@prisma/client';
 import { ObjectStoreUrlService } from '../../infra/objectstore/object-store-url.service.js';
 import { Role } from '../../common/enums/role.enum.js';
 import { decimalToNumber } from '../../common/prisma/decimal.util.js';
@@ -44,6 +44,7 @@ export interface PropertyDto extends Omit<PropertySummaryDto, 'primaryImageUrl'>
   rejectionReason: string | null;
   viewsCount: number;
   images: Array<{ url: string; sortOrder: number }>;
+  videos: Array<{ url: string; sortOrder: number }>;
   updatedAt: Date;
 }
 
@@ -54,11 +55,13 @@ export interface ContactInfoDto {
 }
 
 export const propertyInclude = {
-  images: true
+  images: true,
+  videos: true
 } satisfies Prisma.PropertyInclude;
 
 export type PropertyWithImages = Property & {
   images: PropertyImage[];
+  videos: PropertyVideo[];
 };
 
 @Injectable()
@@ -129,7 +132,7 @@ export class PropertiesQueryService {
     });
 
     return {
-      email: owner.email,
+      email: owner.email ?? '',
       phone: owner.phone ?? null,
       whatsappUrl: owner.phone ? `https://wa.me/${owner.phone.replace(/\D/g, '')}` : null
     };
@@ -195,13 +198,6 @@ export class PropertiesQueryService {
       });
       officeName = profile?.officeName ?? null;
     }
-    if (owner.role === Role.Agency) {
-      const profile = await this.prisma.agencyProfile.findUnique({
-        where: { userId: owner.id },
-        select: { officeName: true }
-      });
-      officeName = profile?.officeName ?? null;
-    }
 
     return {
       id: owner.id,
@@ -239,7 +235,12 @@ export class PropertiesQueryService {
     const images = await Promise.all(
       [...property.images]
         .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((image) => this.toImageDto(image))
+        .map((image) => this.toMediaDto(image))
+    );
+    const videos = await Promise.all(
+      [...property.videos]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((video) => this.toMediaDto(video))
     );
     return {
       ...summary,
@@ -254,14 +255,17 @@ export class PropertiesQueryService {
       rejectionReason: property.rejectionReason,
       viewsCount: property.viewsCount,
       images,
+      videos,
       updatedAt: property.updatedAt
     };
   }
 
-  private async toImageDto(image: PropertyImage): Promise<{ url: string; sortOrder: number }> {
+  private async toMediaDto(
+    media: PropertyImage | PropertyVideo
+  ): Promise<{ url: string; sortOrder: number }> {
     return {
-      url: await this.mediaUrl(image.objectKey),
-      sortOrder: image.sortOrder
+      url: await this.mediaUrl(media.objectKey),
+      sortOrder: media.sortOrder
     };
   }
 

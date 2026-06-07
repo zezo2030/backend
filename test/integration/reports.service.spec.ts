@@ -165,9 +165,7 @@ describe('Reports services (integration)', () => {
         tokenVersion: 0,
         ...(role === Role.Broker
           ? { brokerProfile: { create: { officeName: `Broker ${email}` } } }
-          : role === Role.Agency
-            ? { agencyProfile: { create: { officeName: `Agency ${email}` } } }
-            : {})
+          : {})
       }
     });
     return user.id;

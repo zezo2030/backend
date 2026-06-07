@@ -35,8 +35,16 @@ export class FanoutWorker {
   async runLoop(intervalMs = 1000): Promise<void> {
     this.running = true;
     while (this.running) {
-      const processed = await this.drainOnce();
-      if (!processed) await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      try {
+        const processed = await this.drainOnce();
+        if (!processed) await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      } catch (error) {
+        // A transient DB error (e.g. pool exhaustion) must not kill the process.
+        // Log and back off, then keep looping.
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`runLoop iteration failed, backing off: ${message}`);
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
     }
   }
 
@@ -86,7 +94,7 @@ export class FanoutWorker {
 
       const recipients = await this.prisma.user.findMany({
         where: {
-          role: { in: [Role.Broker, Role.Agency] },
+          role: Role.Broker,
           isActive: true,
           deletedAt: null,
           id: { not: request.requesterId }

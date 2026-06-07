@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
@@ -19,6 +19,8 @@ export interface UserAdminViewDto {
   propertyCount: number;
   propertyRequestCount: number;
   openReportCount: number;
+  isApproved?: boolean;
+  officeName?: string | null;
 }
 
 @Injectable()
@@ -50,12 +52,60 @@ export class AdminUsersService {
         where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
-        take: pageSize
+        take: pageSize,
+        // Compute per-user counts via filtered relation aggregates in a single
+        // query instead of firing 2 extra queries per row (N+1). Fanning out
+        // ~2*pageSize concurrent queries previously exhausted the connection
+        // pool and surfaced as 500s under a session-mode pooler.
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          isVerified: true,
+          createdAt: true,
+          brokerProfile: {
+            select: {
+              isApproved: true,
+              officeName: true
+            }
+          },
+          _count: {
+            select: {
+              ownedProperties: { where: { deletedAt: null } },
+              propertyRequests: {
+                where: {
+                  deletedAt: null,
+                  status: {
+                    in: [PropertyRequestStatus.open, PropertyRequestStatus.in_progress]
+                  }
+                }
+              }
+            }
+          }
+        }
       }),
       this.prisma.user.count({ where })
     ]);
 
-    const items = await Promise.all(docs.map((doc) => this.toView(doc)));
+    const items: UserAdminViewDto[] = docs.map((doc) => ({
+      id: doc.id,
+      email: doc.email ?? '',
+      displayName: doc.displayName,
+      phone: doc.phone ?? null,
+      avatarUrl: null,
+      role: doc.role as Role | null,
+      isActive: doc.isActive,
+      isVerified: doc.isVerified,
+      createdAt: doc.createdAt,
+      propertyCount: doc._count.ownedProperties,
+      propertyRequestCount: doc._count.propertyRequests,
+      openReportCount: 0,
+      isApproved: doc.brokerProfile?.isApproved ?? false,
+      officeName: doc.brokerProfile?.officeName ?? null
+    }));
     return {
       items,
       pageInfo: {
@@ -106,9 +156,29 @@ export class AdminUsersService {
     return this.toView(updated);
   }
 
+  async approveBroker(userId: string, actorUserId: string): Promise<UserAdminViewDto> {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== Role.Broker) throw new BadRequestException('User is not a broker');
+
+    await this.prisma.brokerProfile.update({
+      where: { userId },
+      data: { isApproved: true }
+    });
+
+    await this.auditLogger.log({
+      actorUserId,
+      action: 'admin.broker_approved',
+      targetType: 'user',
+      targetId: userId
+    });
+
+    return this.toView(user);
+  }
+
   private async toView(user: {
     id: string;
-    email: string;
+    email: string | null;
     displayName: string;
     phone: string | null;
     role: string | null;
@@ -116,7 +186,7 @@ export class AdminUsersService {
     isVerified: boolean;
     createdAt: Date;
   }): Promise<UserAdminViewDto> {
-    const [propertyCount, propertyRequestCount] = await Promise.all([
+    const [propertyCount, propertyRequestCount, brokerProfile] = await Promise.all([
       this.prisma.property.count({ where: { ownerId: user.id, deletedAt: null } }),
       this.prisma.propertyRequest.count({
         where: {
@@ -124,11 +194,12 @@ export class AdminUsersService {
           deletedAt: null,
           status: { in: [PropertyRequestStatus.open, PropertyRequestStatus.in_progress] }
         }
-      })
+      }),
+      this.prisma.brokerProfile.findUnique({ where: { userId: user.id } })
     ]);
     return {
       id: user.id,
-      email: user.email,
+      email: user.email ?? '',
       displayName: user.displayName,
       phone: user.phone ?? null,
       avatarUrl: null,
@@ -138,7 +209,9 @@ export class AdminUsersService {
       createdAt: user.createdAt,
       propertyCount,
       propertyRequestCount,
-      openReportCount: 0
+      openReportCount: 0,
+      isApproved: brokerProfile?.isApproved ?? false,
+      officeName: brokerProfile?.officeName ?? null
     };
   }
 }

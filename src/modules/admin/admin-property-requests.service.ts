@@ -121,13 +121,6 @@ export class AdminPropertyRequestsService {
       });
       officeName = profile?.officeName ?? null;
     }
-    if (user.role === Role.Agency) {
-      const profile = await this.prisma.agencyProfile.findUnique({
-        where: { userId: user.id },
-        select: { officeName: true }
-      });
-      officeName = profile?.officeName ?? null;
-    }
     return {
       id: user.id,
       displayName: user.displayName,

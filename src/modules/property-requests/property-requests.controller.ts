@@ -39,7 +39,7 @@ export class PropertyRequestsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(Role.Broker, Role.Agency)
+  @Roles(Role.Broker)
   @Get()
   findFeed(@Query() query: PropertyRequestsFeedQueryDto) {
     return this.propertyRequests.findFeed(query);
@@ -71,7 +71,7 @@ export class PropertyRequestsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(Role.Broker, Role.Agency)
+  @Roles(Role.Broker)
   @Get(':id/contact')
   revealContact(
     @Param('id') id: string,

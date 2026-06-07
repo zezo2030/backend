@@ -71,14 +71,13 @@ describe('admin authorization matrix (e2e)', () => {
   it('every admin endpoint returns 401 unauthenticated and 403 for non-admins', async () => {
     const broker = await sessionWithRole(testApp, 'u5553500001@test.local', 'Broker');
     const regular = await sessionWithRole(testApp, 'u5553500002@test.local', 'RegularUser');
-    const agency = await sessionWithRole(testApp, 'u5553500003@test.local', 'Agency');
 
     for (const endpoint of ENDPOINTS) {
       let unauth = request(httpServer(testApp))[endpoint.method](endpoint.path);
       if (endpoint.body) unauth = unauth.send(endpoint.body);
       await unauth.expect(401);
 
-      for (const session of [broker, regular, agency]) {
+      for (const session of [broker, regular]) {
         let req = request(httpServer(testApp))
           [endpoint.method](endpoint.path)
           .set('Authorization', `Bearer ${session.accessToken}`);

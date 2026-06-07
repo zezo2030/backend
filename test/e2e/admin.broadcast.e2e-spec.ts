@@ -30,11 +30,9 @@ describe('admin broadcast (e2e)', () => {
     const admin = await adminSession(testApp, 'u5553200001@test.local');
     const broker1 = await sessionWithRole(testApp, 'u5553200002@test.local', 'Broker');
     const broker2 = await sessionWithRole(testApp, 'u5553200003@test.local', 'Broker');
-    const agency = await sessionWithRole(testApp, 'u5553200004@test.local', 'Agency');
     const regular = await sessionWithRole(testApp, 'u5553200005@test.local', 'RegularUser');
     await seedToken(broker1.user.id, 'tok-b1');
     await seedToken(broker2.user.id, 'tok-b2');
-    await seedToken(agency.user.id, 'tok-a');
     await seedToken(regular.user.id, 'tok-r');
 
     await request(httpServer(testApp))
@@ -51,16 +49,12 @@ describe('admin broadcast (e2e)', () => {
     const broker2Notifs = await testApp.prisma.notification.count({
       where: { type: NotificationType.admin_broadcast, recipientUserId: broker2.user.id }
     });
-    const agencyNotifs = await testApp.prisma.notification.count({
-      where: { type: NotificationType.admin_broadcast, recipientUserId: agency.user.id }
-    });
     const regularNotifs = await testApp.prisma.notification.count({
       where: { type: NotificationType.admin_broadcast, recipientUserId: regular.user.id }
     });
 
     expect(brokerNotifs).toBe(1);
     expect(broker2Notifs).toBe(1);
-    expect(agencyNotifs).toBe(0);
     expect(regularNotifs).toBe(0);
   });
 });

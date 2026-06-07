@@ -4,6 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { toDecimal } from '../../common/prisma/decimal.util.js';
@@ -24,17 +25,23 @@ import {
 import {
   AvailabilityStatus,
   ModerationStatus,
-  type PropertyImageRecord
+  type PropertyImageRecord,
+  type PropertyVideoRecord
 } from './property.enums.js';
 
 @Injectable()
 export class PropertiesCommandService {
+  private readonly videoMaxBytes: number;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly objectStore: ObjectStoreService,
     private readonly auditLogger: AuditLogger,
-    private readonly query: PropertiesQueryService
-  ) {}
+    private readonly query: PropertiesQueryService,
+    config: ConfigService
+  ) {
+    this.videoMaxBytes = config.getOrThrow<number>('videoMaxBytes');
+  }
 
   async create(
     dto: PropertyCreateDto,
@@ -47,6 +54,7 @@ export class PropertiesCommandService {
     if (!owner?.role) throw new ForbiddenException('Account has no role');
 
     const images = await this.headImages(dto.imageObjectKeys);
+    const videos = await this.headVideos(dto.videoObjectKeys ?? []);
 
     const created = await this.prisma.$transaction(async (tx) => {
       return tx.property.create({
@@ -79,6 +87,15 @@ export class PropertiesCommandService {
               sizeBytes: img.sizeBytes,
               sortOrder: img.sortOrder,
               uploadedAt: img.uploadedAt
+            }))
+          },
+          videos: {
+            create: videos.map((vid) => ({
+              objectKey: vid.objectKey,
+              contentType: vid.contentType,
+              sizeBytes: vid.sizeBytes,
+              sortOrder: vid.sortOrder,
+              uploadedAt: vid.uploadedAt
             }))
           }
         },
@@ -131,6 +148,20 @@ export class PropertiesCommandService {
             sizeBytes: img.sizeBytes,
             sortOrder: img.sortOrder,
             uploadedAt: img.uploadedAt
+          }))
+        });
+      }
+      if (dto.videoObjectKeys !== undefined) {
+        const videos = await this.headVideos(dto.videoObjectKeys);
+        await tx.propertyVideo.deleteMany({ where: { propertyId: property.id } });
+        await tx.propertyVideo.createMany({
+          data: videos.map((vid) => ({
+            propertyId: property.id,
+            objectKey: vid.objectKey,
+            contentType: vid.contentType,
+            sizeBytes: vid.sizeBytes,
+            sortOrder: vid.sortOrder,
+            uploadedAt: vid.uploadedAt
           }))
         });
       }
@@ -223,6 +254,43 @@ export class PropertiesCommandService {
       });
     }
     return images;
+  }
+
+  private async headVideos(objectKeys: string[]): Promise<PropertyVideoRecord[]> {
+    const now = new Date();
+    const videos: PropertyVideoRecord[] = [];
+    for (let index = 0; index < objectKeys.length; index += 1) {
+      const objectKey = objectKeys[index]!;
+      const head = await this.objectStore.head(objectKey);
+      if (!head) {
+        throw new UnprocessableEntityException({
+          code: 'uploadMissing',
+          message: `Object not found in storage: ${objectKey}`
+        });
+      }
+      if (head.sizeBytes > this.videoMaxBytes) {
+        throw new UnprocessableEntityException({
+          code: 'videoTooLarge',
+          message: `Uploaded video exceeds ${this.videoMaxBytes} bytes: ${objectKey}`
+        });
+      }
+      // Content-Type is client-supplied and untrustworthy — validate the real
+      // bytes (the `ftyp` box) the same way images are checked.
+      if (!(await this.objectStore.isValidVideo(objectKey))) {
+        throw new UnprocessableEntityException({
+          code: 'uploadInvalidVideo',
+          message: `Uploaded object is not a valid video: ${objectKey}`
+        });
+      }
+      videos.push({
+        objectKey,
+        contentType: head.contentType,
+        sizeBytes: head.sizeBytes,
+        sortOrder: index,
+        uploadedAt: now
+      });
+    }
+    return videos;
   }
 
   private async findOwnedOrAdmin(id: string, callerId: string): Promise<PropertyWithImages> {

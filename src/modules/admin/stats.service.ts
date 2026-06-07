@@ -8,7 +8,7 @@ import { ReportStatus } from '../reports/report.enums.js';
 export interface StatsDto {
   users: {
     total: number;
-    byRole: Record<'RegularUser' | 'Broker' | 'Agency' | 'Admin', number>;
+    byRole: Record<'RegularUser' | 'Broker' | 'Admin', number>;
   };
   properties: {
     total: number;
@@ -46,39 +46,39 @@ export class StatsService {
   }
 
   private async compute(): Promise<StatsDto> {
-    const [
-      usersByRole,
-      usersTotal,
-      propertiesByStatus,
-      propertiesTotal,
-      requestsByStatus,
-      requestsTotal,
-      reportsOpen,
-      reportsResolved,
-      reportsDismissed
-    ] = await Promise.all([
-      this.prisma.user.groupBy({
-        by: ['role'],
-        where: { deletedAt: null },
-        _count: { _all: true }
-      }),
-      this.prisma.user.count({ where: { deletedAt: null } }),
-      this.prisma.property.groupBy({
-        by: ['moderationStatus'],
-        where: { deletedAt: null },
-        _count: { _all: true }
-      }),
-      this.prisma.property.count(),
-      this.prisma.propertyRequest.groupBy({
-        by: ['status'],
-        where: { deletedAt: null },
-        _count: { _all: true }
-      }),
-      this.prisma.propertyRequest.count({ where: { deletedAt: null } }),
-      this.prisma.report.count({ where: { status: ReportStatus.open } }),
-      this.prisma.report.count({ where: { status: ReportStatus.resolved } }),
-      this.prisma.report.count({ where: { status: ReportStatus.dismissed } })
-    ]);
+    // Run sequentially rather than via a wide Promise.all: a single stats
+    // request must not open ~10 concurrent DB connections at once, which can
+    // exceed the (session-mode) pooler limit and surface as a 500. Results are
+    // cached for 60s, so the extra latency is paid at most once per minute.
+    const usersByRole = await this.prisma.user.groupBy({
+      by: ['role'],
+      where: { deletedAt: null },
+      _count: { _all: true }
+    });
+    const usersTotal = await this.prisma.user.count({ where: { deletedAt: null } });
+    const propertiesByStatus = await this.prisma.property.groupBy({
+      by: ['moderationStatus'],
+      where: { deletedAt: null },
+      _count: { _all: true }
+    });
+    const propertiesTotal = await this.prisma.property.count();
+    const requestsByStatus = await this.prisma.propertyRequest.groupBy({
+      by: ['status'],
+      where: { deletedAt: null },
+      _count: { _all: true }
+    });
+    const requestsTotal = await this.prisma.propertyRequest.count({
+      where: { deletedAt: null }
+    });
+    const reportsOpen = await this.prisma.report.count({
+      where: { status: ReportStatus.open }
+    });
+    const reportsResolved = await this.prisma.report.count({
+      where: { status: ReportStatus.resolved }
+    });
+    const reportsDismissed = await this.prisma.report.count({
+      where: { status: ReportStatus.dismissed }
+    });
 
     const deletedPropertyCount = await this.prisma.property.count({
       where: { deletedAt: { not: null } }
@@ -87,7 +87,6 @@ export class StatsService {
     const byRole: StatsDto['users']['byRole'] = {
       RegularUser: 0,
       Broker: 0,
-      Agency: 0,
       Admin: 0
     };
     for (const row of usersByRole) {

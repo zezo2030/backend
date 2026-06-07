@@ -9,6 +9,7 @@ import * as yaml from 'js-yaml';
 import { AppModule } from './app.module.js';
 import { FanoutReaper } from './modules/fanout/fanout.reaper.js';
 import { FanoutWorker } from './modules/fanout/fanout.worker.js';
+import { BroadcastWorker } from './modules/admin/broadcast.worker.js';
 import { ReportTargetReconciler } from './modules/reports/report-target-reconciler.service.js';
 
 async function bootstrap(): Promise<void> {
@@ -53,11 +54,13 @@ async function bootstrap(): Promise<void> {
   logger.log(`Mobile LAN: set API_BASE_URL=${lanUrl}/api/v1 in mobile/.env`, 'Bootstrap');
 
   if (process.env.DEV_RUN_WORKER === 'true') {
-    const worker = app.get(FanoutWorker);
+    const fanoutWorker = app.get(FanoutWorker);
+    const broadcastWorker = app.get(BroadcastWorker);
     const reaper = app.get(FanoutReaper);
     reaper.start();
-    void worker.runLoop();
-    logger.log('Fanout worker running in-process', 'Bootstrap');
+    void fanoutWorker.runLoop();
+    void broadcastWorker.runLoop();
+    logger.log('Fanout + broadcast workers running in-process', 'Bootstrap');
   }
 
   const reportReconciler = app.get(ReportTargetReconciler);

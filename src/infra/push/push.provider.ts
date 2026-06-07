@@ -1,8 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import type { ConfigService } from '@nestjs/config';
-import { cert, getApps, initializeApp, type ServiceAccount } from 'firebase-admin/app';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getMessaging, type Message } from 'firebase-admin/messaging';
+import { loadServiceAccount } from '../firebase/firebase-credentials.js';
 
 export const PUSH_DISPATCHER = Symbol('PUSH_DISPATCHER');
 
@@ -52,13 +51,37 @@ const toFcmData = (message: PushMessage): Record<string, string> => ({
   )
 });
 
+// Notification channel id that the mobile app creates via Notifee (notifee.ts).
+const ANDROID_CHANNEL_ID = 'requests';
+
+// We send BOTH a `notification` block (so the OS auto-displays the alert when
+// the app is backgrounded or killed — required on iOS, reliable on Android) and
+// the `data` block (so a tap can deep-link). In the foreground the app surfaces
+// its own Notifee notification, so no duplicate is shown.
 const toFcmMessage = (token: string, message: PushMessage): Message => ({
   token,
+  notification: { title: message.title, body: message.body },
   data: toFcmData(message),
-  android: { priority: 'high' },
+  android: {
+    priority: 'high',
+    ttl: 86400000,
+    notification: {
+      channelId: ANDROID_CHANNEL_ID,
+      priority: 'high',
+      visibility: 'public',
+      defaultSound: true,
+      defaultVibrateTimings: true
+    }
+  },
   apns: {
     headers: { 'apns-priority': '10' },
-    payload: { aps: { contentAvailable: true } }
+    payload: {
+      aps: {
+        alert: { title: message.title, body: message.body },
+        sound: 'default',
+        contentAvailable: true
+      }
+    }
   }
 });
 
@@ -79,24 +102,6 @@ const mapSendEachResults = (
     };
   });
 
-function loadServiceAccount(config: ConfigService): ServiceAccount {
-  const accountPath = config.get<string>('firebase.serviceAccountPath');
-  if (accountPath) {
-    const raw = readFileSync(resolve(accountPath), 'utf8');
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    return {
-      projectId: parsed.project_id ?? parsed.projectId ?? '',
-      clientEmail: parsed.client_email ?? parsed.clientEmail ?? '',
-      privateKey: (parsed.private_key ?? parsed.privateKey ?? '').replace(/\\n/g, '\n')
-    };
-  }
-  return {
-    projectId: config.getOrThrow<string>('firebase.projectId'),
-    clientEmail: config.getOrThrow<string>('firebase.clientEmail'),
-    privateKey: config.getOrThrow<string>('firebase.privateKey')
-  };
-}
-
 export class FcmAdapter implements PushDispatcher {
   constructor(config: ConfigService) {
     if (getApps().length === 0) {
@@ -110,6 +115,7 @@ export class FcmAdapter implements PushDispatcher {
     const fcmMessage = toFcmMessage(tokens[0] ?? '', message);
     const response = await messaging.sendEachForMulticast({
       tokens,
+      notification: fcmMessage.notification,
       data: fcmMessage.data,
       android: fcmMessage.android,
       apns: fcmMessage.apns

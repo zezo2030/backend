@@ -21,6 +21,7 @@ interface UserAdminPage {
 
 describe('admin users (e2e)', () => {
   let testApp: AuthTestApp;
+  const rand = () => Math.random().toString(36).substring(2, 8);
 
   beforeAll(async () => {
     testApp = await createAuthTestApp();
@@ -31,13 +32,14 @@ describe('admin users (e2e)', () => {
   });
 
   it('lists users with filters and disables a user, bumping tokenVersion and hiding listings', async () => {
-    const admin = await adminSession(testApp, 'u5553000001@test.local');
-    const broker = await sessionWithRole(testApp, 'u5553000002@test.local', 'Broker');
-    await sessionWithRole(testApp, 'u5553000003@test.local', 'RegularUser');
+    const r = rand();
+    const admin = await adminSession(testApp, `admin_${r}@test.local`);
+    const broker = await sessionWithRole(testApp, `broker_${r}@test.local`, 'Broker');
+    await sessionWithRole(testApp, `user_${r}@test.local`, 'RegularUser');
 
     const city = await seedCity(testApp.prisma, 'admin-users-city');
     const area = await seedArea(testApp.prisma, city.id, 'admin-users-area');
-    await seedProperty(testApp.prisma, {
+    const property = await seedProperty(testApp.prisma, {
       ownerId: broker.user.id,
       title: 'Broker Listing',
       propertyType: 'apartment',
@@ -86,11 +88,45 @@ describe('admin users (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         const items = (body as { items: Array<{ id: string }> }).items;
-        expect(items.length).toBe(0);
+        expect(items.some((item) => item.id === property.id)).toBe(false);
       });
 
     const auditCount = await testApp.prisma.auditEvent.count({
       where: { action: 'admin.user_disabled', targetId: broker.user.id }
+    });
+    expect(auditCount).toBe(1);
+  });
+
+  it('supports broker approval flow and audits it', async () => {
+    const r = rand();
+    const admin = await adminSession(testApp, `admin_app_${r}@test.local`);
+    const broker = await sessionWithRole(testApp, `broker_app_${r}@test.local`, 'Broker');
+
+    // By default, a new broker is not approved
+    const meBefore = await request(httpServer(testApp))
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${broker.accessToken}`)
+      .expect(200);
+    expect(meBefore.body.isApproved).toBe(false);
+
+    // Admin approves the broker
+    await request(httpServer(testApp))
+      .patch(`/api/v1/admin/users/${broker.user.id}/approve-broker`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.isApproved).toBe(true);
+      });
+
+    // Check again
+    const meAfter = await request(httpServer(testApp))
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${broker.accessToken}`)
+      .expect(200);
+    expect(meAfter.body.isApproved).toBe(true);
+
+    const auditCount = await testApp.prisma.auditEvent.count({
+      where: { action: 'admin.broker_approved', targetId: broker.user.id }
     });
     expect(auditCount).toBe(1);
   });

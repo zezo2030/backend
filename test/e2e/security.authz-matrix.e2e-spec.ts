@@ -9,7 +9,7 @@ import {
 import { seedArea, seedCity, seedProperty } from '../helpers/test-db.js';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
-type RoleKey = 'anon' | 'regular' | 'broker' | 'agency' | 'admin';
+type RoleKey = 'anon' | 'regular' | 'broker' | 'admin';
 
 interface AuthzCase {
   label: string;
@@ -20,7 +20,7 @@ interface AuthzCase {
   expected: Record<RoleKey, number[]>;
 }
 
-const ROLE_KEYS: RoleKey[] = ['anon', 'regular', 'broker', 'agency', 'admin'];
+const ROLE_KEYS: RoleKey[] = ['anon', 'regular', 'broker', 'admin'];
 
 describe('SC-011 endpoint × role authorization matrix (e2e)', () => {
   let testApp: AuthTestApp;
@@ -33,9 +33,8 @@ describe('SC-011 endpoint × role authorization matrix (e2e)', () => {
     testApp = await createAuthTestApp();
     const regular = await sessionWithRole(testApp, 'u5558800001@test.local', 'RegularUser');
     const broker = await sessionWithRole(testApp, 'u5558800002@test.local', 'Broker');
-    const agency = await sessionWithRole(testApp, 'u5558800003@test.local', 'Agency');
     const admin = await adminSession(testApp, 'u5558800004@test.local');
-    sessions = { regular, broker, agency, admin };
+    sessions = { regular, broker, admin };
 
     city = (await seedCity(testApp.prisma, 'matrix-city')).id;
     area = (await seedArea(testApp.prisma, city, 'matrix-area')).id;
@@ -71,130 +70,130 @@ describe('SC-011 endpoint × role authorization matrix (e2e)', () => {
         label: 'GET /properties',
         method: 'get',
         path: '/api/v1/properties',
-        expected: { anon: [200], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [200], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'GET /properties/{id}',
         method: 'get',
         path: `/api/v1/properties/${propertyId}`,
-        expected: { anon: [200], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [200], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'GET /locations/cities',
         method: 'get',
         path: '/api/v1/locations/cities',
-        expected: { anon: [200], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [200], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'POST /auth/login',
         method: 'post',
         path: '/api/v1/auth/login',
         body: { email: 'u5558809999@test.local', password: 'wrong-password' },
-        expected: { anon: [401], regular: [401], broker: [401], agency: [401], admin: [401] }
+        expected: { anon: [401], regular: [401], broker: [401], admin: [401] }
       },
       {
         label: 'GET /auth/me',
         method: 'get',
         path: '/api/v1/auth/me',
-        expected: { anon: [401], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [401], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'GET /users/profile',
         method: 'get',
         path: '/api/v1/users/profile',
-        expected: { anon: [401], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [401], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'GET /properties/mine',
         method: 'get',
         path: '/api/v1/properties/mine',
-        expected: { anon: [401], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [401], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'GET /property-requests/mine',
         method: 'get',
         path: '/api/v1/property-requests/mine',
-        expected: { anon: [401], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [401], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'POST /media/uploads',
         method: 'post',
         path: '/api/v1/media/uploads',
         body: { items: [{ contentType: 'image/jpeg', sizeBytes: 1024 }] },
-        expected: { anon: [401], regular: [201], broker: [201], agency: [201], admin: [201] }
+        expected: { anon: [401], regular: [201], broker: [201], admin: [201] }
       },
       {
         label: 'GET /favorites',
         method: 'get',
         path: '/api/v1/favorites',
-        expected: { anon: [401], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [401], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'PUT /favorites/{propertyId}',
         method: 'put',
         path: `/api/v1/favorites/${propertyId}`,
-        expected: { anon: [401], regular: [204], broker: [204], agency: [204], admin: [204] }
+        expected: { anon: [401], regular: [204], broker: [204], admin: [204] }
       },
       {
         label: 'GET /notifications',
         method: 'get',
         path: '/api/v1/notifications',
-        expected: { anon: [401], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [401], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'POST /reports',
         method: 'post',
         path: '/api/v1/reports',
         body: { targetType: 'property', targetId: propertyId, reason: 'Matrix coverage' },
-        expected: { anon: [401], regular: [201], broker: [201], agency: [201], admin: [201] }
+        expected: { anon: [401], regular: [201], broker: [201], admin: [201] }
       },
       {
         label: 'GET /properties/{id}/contact',
         method: 'get',
         path: `/api/v1/properties/${propertyId}/contact`,
-        expected: { anon: [401], regular: [200], broker: [200], agency: [200], admin: [200] }
+        expected: { anon: [401], regular: [200], broker: [200], admin: [200] }
       },
       {
         label: 'GET /property-requests',
         method: 'get',
         path: '/api/v1/property-requests',
-        expected: { anon: [401], regular: [403], broker: [200], agency: [200], admin: [403] }
+        expected: { anon: [401], regular: [403], broker: [200], admin: [403] }
       },
       {
         label: 'GET /property-requests/{id}/contact',
         method: 'get',
         path: `/api/v1/property-requests/${someId}/contact`,
-        expected: { anon: [401], regular: [403], broker: [404], agency: [404], admin: [403] }
+        expected: { anon: [401], regular: [403], broker: [404], admin: [403] }
       },
       {
         label: 'GET /admin/users',
         method: 'get',
         path: '/api/v1/admin/users',
-        expected: { anon: [401], regular: [403], broker: [403], agency: [403], admin: [200] }
+        expected: { anon: [401], regular: [403], broker: [403], admin: [200] }
       },
       {
         label: 'GET /admin/stats',
         method: 'get',
         path: '/api/v1/admin/stats',
-        expected: { anon: [401], regular: [403], broker: [403], agency: [403], admin: [200] }
+        expected: { anon: [401], regular: [403], broker: [403], admin: [200] }
       },
       {
         label: 'GET /admin/properties',
         method: 'get',
         path: '/api/v1/admin/properties',
-        expected: { anon: [401], regular: [403], broker: [403], agency: [403], admin: [200] }
+        expected: { anon: [401], regular: [403], broker: [403], admin: [200] }
       },
       {
         label: 'GET /admin/property-requests',
         method: 'get',
         path: '/api/v1/admin/property-requests',
-        expected: { anon: [401], regular: [403], broker: [403], agency: [403], admin: [200] }
+        expected: { anon: [401], regular: [403], broker: [403], admin: [200] }
       },
       {
         label: 'GET /admin/reports',
         method: 'get',
         path: '/api/v1/admin/reports',
-        expected: { anon: [401], regular: [403], broker: [403], agency: [403], admin: [200] }
+        expected: { anon: [401], regular: [403], broker: [403], admin: [200] }
       }
     ];
   }

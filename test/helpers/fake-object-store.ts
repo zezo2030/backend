@@ -52,6 +52,11 @@ export class FakeObjectStore {
     return Promise.resolve(this.objects.has(objectKey));
   }
 
+  isValidVideo(objectKey: string): Promise<boolean> {
+    const meta = this.objects.get(objectKey);
+    return Promise.resolve(Boolean(meta?.contentType.startsWith('video/')));
+  }
+
   deleteObjects(objectKeys: string[]): Promise<void> {
     for (const key of objectKeys) this.objects.delete(key);
     return Promise.resolve();

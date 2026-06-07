@@ -53,7 +53,7 @@ describe('property requests fanout idempotency (e2e)', () => {
     ).toBe(1);
   });
 
-  async function roleSession(email: string, role: 'RegularUser' | 'Broker' | 'Agency') {
+  async function roleSession(email: string, role: 'RegularUser' | 'Broker') {
     const first = await issueSession(testApp, email);
     await request(httpServer(testApp))
       .post('/api/v1/auth/select-role')

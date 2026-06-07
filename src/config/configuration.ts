@@ -25,6 +25,7 @@ export interface AppConfig {
     presignTtlSec: number;
   };
   imageMaxBytes: number;
+  videoMaxBytes: number;
   devRunWorker: boolean;
   logLevel: string;
   mail: {
@@ -77,6 +78,7 @@ export default (): AppConfig => ({
     presignTtlSec: Number(process.env.SUPABASE_STORAGE_PRESIGN_TTL_SEC ?? 600)
   },
   imageMaxBytes: Number(process.env.IMAGE_MAX_BYTES ?? 8388608),
+  videoMaxBytes: Number(process.env.VIDEO_MAX_BYTES ?? 104857600),
   devRunWorker: boolFromEnv(process.env.DEV_RUN_WORKER, false),
   logLevel: process.env.LOG_LEVEL ?? 'info',
   mail: {

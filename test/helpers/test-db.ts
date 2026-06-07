@@ -22,7 +22,6 @@ export async function truncateAllTables(prisma: PrismaService): Promise<void> {
       property_requests,
       refresh_tokens,
       broker_profiles,
-      agency_profiles,
       users,
       locations
     RESTART IDENTITY CASCADE

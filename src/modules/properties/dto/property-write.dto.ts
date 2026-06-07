@@ -85,6 +85,12 @@ export class PropertyCreateDto {
   @ArrayMaxSize(20)
   @IsString({ each: true })
   imageObjectKeys!: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsString({ each: true })
+  videoObjectKeys?: string[];
 }
 
 export class PropertyUpdateDto {
@@ -161,6 +167,12 @@ export class PropertyUpdateDto {
   @ArrayMaxSize(20)
   @IsString({ each: true })
   imageObjectKeys?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsString({ each: true })
+  videoObjectKeys?: string[];
 }
 
 export class PropertyAvailabilityDto {
