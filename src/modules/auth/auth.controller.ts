@@ -14,6 +14,7 @@ import {
   RefreshDto,
   RegisterDto
 } from './dto/auth.dto.js';
+import { ChangeOwnerPasswordDto } from './dto/change-owner-password.dto.js';
 import {
   PasswordResetConfirmDto,
   PasswordResetRequestDto,
@@ -117,6 +118,20 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthenticatedUser) {
     return this.usersService.getSelf(user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, AccountActiveGuard)
+  @Post('me/change-password')
+  @HttpCode(204)
+  changeOwnerPassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangeOwnerPasswordDto
+  ): Promise<void> {
+    return this.authService.changeOwnerPassword(
+      user.sub,
+      dto.currentPassword,
+      dto.newPassword
+    );
   }
 
   @UseGuards(JwtAuthGuard, AccountActiveGuard)

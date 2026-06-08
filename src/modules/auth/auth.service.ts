@@ -1,6 +1,8 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
   UnprocessableEntityException
 } from '@nestjs/common';
@@ -267,6 +269,65 @@ export class AuthService {
     });
 
     return await this.sessionWithRefresh(user, newRawToken);
+  }
+
+  /**
+   * Self-service password change for the sole owner / super-admin account.
+   * Other admins cannot use this endpoint — the owner flag is required.
+   */
+  async changeOwnerPassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, isOwner: true, passwordHash: true, deletedAt: true }
+    });
+    if (!user || user.deletedAt) throw new NotFoundException('User not found');
+    if (!user.isOwner) {
+      throw new ForbiddenException({
+        code: 'ownerOnly',
+        message: 'Only the owner account can change its password here'
+      });
+    }
+    if (!user.passwordHash) {
+      throw new UnprocessableEntityException({
+        code: 'noPassword',
+        message: 'No password is set on this account'
+      });
+    }
+
+    const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!matches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (currentPassword === newPassword) {
+      throw new UnprocessableEntityException({
+        code: 'samePassword',
+        message: 'New password must be different from the current password'
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash, tokenVersion: { increment: 1 } }
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now }
+      })
+    ]);
+
+    await this.auditLogger.log({
+      actorUserId: userId,
+      action: 'auth.owner_password_changed',
+      targetType: 'user',
+      targetId: userId
+    });
   }
 
   async logout(userId: string, rawRefreshToken: string): Promise<void> {
