@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule as CommonAuthModule } from '../../common/auth/auth.module.js';
 import { LoggerModule } from '../../common/logging/logger.module.js';
+import { BlocklistModule } from '../blocklist/blocklist.module.js';
 import { UsersModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
@@ -13,6 +14,7 @@ import { PasswordResetService } from './password-reset.service.js';
     ConfigModule,
     CommonAuthModule,
     UsersModule,
+    BlocklistModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

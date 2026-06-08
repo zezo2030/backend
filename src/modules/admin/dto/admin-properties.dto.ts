@@ -19,6 +19,16 @@ export class AdminPropertiesListQueryDto {
   @IsOptional()
   @IsEnum(ModerationStatus)
   moderationStatus?: ModerationStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  id?: string;
 }
 
 export enum ModerationAction {

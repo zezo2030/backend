@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException
@@ -9,6 +10,7 @@ import { Role } from '../../common/enums/role.enum.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { ObjectStoreService } from '../../infra/objectstore/object-store.service.js';
+import { BlockedIdentityService } from '../blocklist/blocked-identity.service.js';
 import type { SelectRoleDto, UpdateProfileDto } from './dto/users.dto.js';
 
 export interface UserSelf {
@@ -20,6 +22,7 @@ export interface UserSelf {
   role: Role | null;
   isActive: boolean;
   isVerified: boolean;
+  isOwner: boolean;
   createdAt: Date;
   isApproved?: boolean;
   officeName?: string | null;
@@ -30,7 +33,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogger: AuditLogger,
-    private readonly objectStore: ObjectStoreService
+    private readonly objectStore: ObjectStoreService,
+    private readonly blocklist: BlockedIdentityService
   ) {}
 
   async getSelf(userId: string): Promise<UserSelf> {
@@ -89,6 +93,9 @@ export class UsersService {
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<UserSelf> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.deletedAt) throw new NotFoundException('User not found');
+    if (dto.phone !== undefined && dto.phone !== user.phone) {
+      await this.blocklist.assertNotBlocked(null, dto.phone);
+    }
     if (dto.avatarKey && !(await this.objectStore.isValidImage(dto.avatarKey))) {
       throw new UnprocessableEntityException({
         code: 'uploadInvalidImage',
@@ -110,6 +117,14 @@ export class UsersService {
   async deleteAccount(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.deletedAt) return;
+    // The sole owner / super-admin account is permanent and cannot be deleted —
+    // this prevents an irreversible lockout of the locked owner credentials.
+    if (user.isOwner) {
+      throw new ForbiddenException({
+        code: 'ownerProtected',
+        message: 'The owner account cannot be deleted'
+      });
+    }
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
@@ -118,6 +133,13 @@ export class UsersService {
       this.prisma.refreshToken.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() }
+      }),
+      // Block this email/phone from re-registration (admin can lift it later).
+      this.blocklist.buildBlockOp({
+        email: user.email,
+        phone: user.phone,
+        reason: 'account_deleted',
+        createdBy: user.id
       })
     ]);
     await this.auditLogger.log({
@@ -138,6 +160,7 @@ export class UsersService {
       role: user.role as Role | null,
       isActive: user.isActive,
       isVerified: user.isVerified,
+      isOwner: user.isOwner ?? false,
       createdAt: user.createdAt,
       isApproved: user.brokerProfile?.isApproved ?? false,
       officeName: user.brokerProfile?.officeName ?? null

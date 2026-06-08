@@ -28,6 +28,9 @@ export const envValidationSchema = Joi.object({
   SUPABASE_STORAGE_PRESIGN_TTL_SEC: Joi.number().integer().positive().default(600),
   IMAGE_MAX_BYTES: Joi.number().integer().positive().default(8388608),
   VIDEO_MAX_BYTES: Joi.number().integer().positive().default(104857600),
+  OWNER_EMAIL: Joi.string().email().allow('').optional(),
+  ANDROID_PACKAGE_NAME: Joi.string().allow('').optional(),
+  ANDROID_CERT_SHA256: Joi.string().allow('').optional(),
   DEV_RUN_WORKER: Joi.boolean().default(false),
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
@@ -46,7 +49,8 @@ export const envValidationSchema = Joi.object({
   PASSWORD_RESET_CODE_TTL_SEC: Joi.number().integer().positive().default(600),
   PASSWORD_RESET_TOKEN_TTL_SEC: Joi.number().integer().positive().default(900),
   PASSWORD_RESET_MAX_ATTEMPTS: Joi.number().integer().positive().default(5),
-  PASSWORD_RESET_MAX_REQUESTS_PER_HOUR: Joi.number().integer().positive().default(3)
+  PASSWORD_RESET_MAX_REQUESTS_PER_HOUR: Joi.number().integer().positive().default(3),
+  CORS_ORIGINS: Joi.string().allow('').optional()
 }).custom((value, helpers) => {
   if (value.PUSH_PROVIDER !== 'fcm') return value;
 

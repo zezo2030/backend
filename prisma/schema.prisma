@@ -127,6 +127,12 @@ enum BroadcastOutboxStatus {
   failed_permanently
 }
 
+enum BannerLinkType {
+  property
+  url
+  none
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String?   @unique
@@ -137,6 +143,7 @@ model User {
   role         Role?
   isActive     Boolean   @default(true)
   isVerified   Boolean   @default(false)
+  isOwner      Boolean   @default(false)
   tokenVersion Int       @default(0)
   lastSeenAt   DateTime?
   deletedAt    DateTime?
@@ -266,6 +273,7 @@ model Property {
   images    PropertyImage[]
   videos    PropertyVideo[]
   favorites Favorite[]
+  banners   Banner[]        @relation("BannerProperty")
 
   @@index([deletedAt, moderationStatus, availabilityStatus, createdAt(sort: Desc)])
   @@index([deletedAt, moderationStatus, city, area, propertyType, listingType, price])
@@ -449,6 +457,48 @@ model BroadcastOutbox {
 
   @@index([status, leasedUntil, createdAt])
   @@map("broadcast_outbox")
+}
+
+model Banner {
+  id             String         @id @default(cuid())
+  imageObjectKey String
+  title          String?
+  linkType       BannerLinkType @default(none)
+  propertyId     String?
+  url            String?
+  sortOrder      Int            @default(0)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  property Property? @relation("BannerProperty", fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([isActive, sortOrder])
+  @@index([propertyId])
+  @@map("banners")
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+model BlockedIdentity {
+  id        String   @id @default(cuid())
+  email     String?
+  phone     String?
+  reason    String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@unique([email])
+  @@unique([phone])
+  @@index([email])
+  @@index([phone])
+  @@map("blocked_identities")
 }
 
 model AuditEvent {

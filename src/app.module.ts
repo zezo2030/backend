@@ -23,6 +23,10 @@ import { FavoritesModule } from './modules/favorites/favorites.module.js';
 import { FanoutModule } from './modules/fanout/fanout.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
+import { BannersModule } from './modules/banners/banners.module.js';
+import { SettingsModule } from './modules/settings/settings.module.js';
+import { BlocklistModule } from './modules/blocklist/blocklist.module.js';
+import { WellKnownModule } from './modules/well-known/well-known.module.js';
 
 @Module({
   imports: [
@@ -49,7 +53,11 @@ import { AdminModule } from './modules/admin/admin.module.js';
     PropertyRequestsModule,
     FanoutModule,
     ReportsModule,
-    AdminModule
+    AdminModule,
+    BannersModule,
+    SettingsModule,
+    BlocklistModule,
+    WellKnownModule
   ],
   providers: [
     {

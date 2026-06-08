@@ -11,6 +11,7 @@ import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { BlockedIdentityService } from '../blocklist/blocked-identity.service.js';
 import { UsersService, type UserSelf } from '../users/users.service.js';
 
 export interface AuthSession {
@@ -28,7 +29,8 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
-    private readonly auditLogger: AuditLogger
+    private readonly auditLogger: AuditLogger,
+    private readonly blocklist: BlockedIdentityService
   ) {}
 
   /**
@@ -43,6 +45,7 @@ export class AuthService {
     userAgent?: string
   ): Promise<AuthSession> {
     const normalized = phone.trim();
+    await this.blocklist.assertNotBlocked(null, normalized);
     const existing = await this.prisma.user.findFirst({
       where: { phone: normalized, deletedAt: null },
       select: { id: true, passwordHash: true, displayName: true }
@@ -131,6 +134,7 @@ export class AuthService {
     userAgent?: string
   ): Promise<AuthSession> {
     const normalized = email.trim().toLowerCase();
+    await this.blocklist.assertNotBlocked(normalized, null);
     const existing = await this.prisma.user.findFirst({
       where: { email: normalized, deletedAt: null },
       select: { id: true, passwordHash: true, displayName: true }

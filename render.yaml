@@ -9,6 +9,8 @@ envVarGroups:
         value: production
       - key: LOG_LEVEL
         value: info
+      - key: CORS_ORIGINS
+        value: https://readstatadmin.vercel.app,http://localhost:5173
       # Supabase Postgres (see .env.example)
       - key: DATABASE_URL
         sync: false
@@ -44,6 +46,8 @@ envVarGroups:
         sync: false
       - key: MAIL_SMTP_PASS
         sync: false
+      - key: OWNER_EMAIL
+        value: mhd7190@gmail.com
 
 services:
   - type: web

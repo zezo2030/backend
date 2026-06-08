@@ -11,12 +11,29 @@ import { FanoutReaper } from './modules/fanout/fanout.reaper.js';
 import { FanoutWorker } from './modules/fanout/fanout.worker.js';
 import { BroadcastWorker } from './modules/admin/broadcast.worker.js';
 import { ReportTargetReconciler } from './modules/reports/report-target-reconciler.service.js';
+import { parseCorsOrigins } from './config/cors.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
+
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS, nodeEnv);
+  if (corsOrigins) {
+    app.enableCors({
+      origin: corsOrigins,
+      credentials: true,
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-API-Version'],
+      maxAge: 86_400
+    });
+  }
+
   app.setGlobalPrefix('api', {
-    exclude: [{ path: 'health', method: RequestMethod.ALL }]
+    exclude: [
+      { path: 'health', method: RequestMethod.ALL },
+      { path: '.well-known/assetlinks.json', method: RequestMethod.GET }
+    ]
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalPipes(
@@ -51,6 +68,9 @@ async function bootstrap(): Promise<void> {
   logger.log(`App health: ${baseUrl}/health`, 'Bootstrap');
   logger.log(`Swagger UI: ${baseUrl}/api/v1/docs`, 'Bootstrap');
   logger.log(`Cities:     ${baseUrl}/api/v1/locations/cities`, 'Bootstrap');
+  if (corsOrigins) {
+    logger.log(`CORS:       ${corsOrigins.join(', ')}`, 'Bootstrap');
+  }
   logger.log(`Mobile LAN: set API_BASE_URL=${lanUrl}/api/v1 in mobile/.env`, 'Bootstrap');
 
   if (process.env.DEV_RUN_WORKER === 'true') {

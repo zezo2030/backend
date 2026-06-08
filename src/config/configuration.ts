@@ -26,6 +26,11 @@ export interface AppConfig {
   };
   imageMaxBytes: number;
   videoMaxBytes: number;
+  ownerEmail: string;
+  android: {
+    packageName: string;
+    certFingerprints: string[];
+  };
   devRunWorker: boolean;
   logLevel: string;
   mail: {
@@ -79,6 +84,14 @@ export default (): AppConfig => ({
   },
   imageMaxBytes: Number(process.env.IMAGE_MAX_BYTES ?? 8388608),
   videoMaxBytes: Number(process.env.VIDEO_MAX_BYTES ?? 104857600),
+  ownerEmail: (process.env.OWNER_EMAIL ?? '').trim().toLowerCase(),
+  android: {
+    packageName: (process.env.ANDROID_PACKAGE_NAME ?? 'com.realestatemobile').trim(),
+    certFingerprints: (process.env.ANDROID_CERT_SHA256 ?? '')
+      .split(',')
+      .map((fp) => fp.trim().toUpperCase())
+      .filter(Boolean)
+  },
   devRunWorker: boolFromEnv(process.env.DEV_RUN_WORKER, false),
   logLevel: process.env.LOG_LEVEL ?? 'info',
   mail: {

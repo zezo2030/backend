@@ -88,7 +88,7 @@ export class PropertyCreateDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(1)
   @IsString({ each: true })
   videoObjectKeys?: string[];
 }
@@ -170,7 +170,7 @@ export class PropertyUpdateDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(1)
   @IsString({ each: true })
   videoObjectKeys?: string[];
 }

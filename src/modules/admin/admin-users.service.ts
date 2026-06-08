@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
@@ -15,6 +20,7 @@ export interface UserAdminViewDto {
   role: Role | null;
   isActive: boolean;
   isVerified: boolean;
+  isOwner: boolean;
   createdAt: Date;
   propertyCount: number;
   propertyRequestCount: number;
@@ -65,6 +71,7 @@ export class AdminUsersService {
           role: true,
           isActive: true,
           isVerified: true,
+          isOwner: true,
           createdAt: true,
           brokerProfile: {
             select: {
@@ -99,6 +106,7 @@ export class AdminUsersService {
       role: doc.role as Role | null,
       isActive: doc.isActive,
       isVerified: doc.isVerified,
+      isOwner: doc.isOwner,
       createdAt: doc.createdAt,
       propertyCount: doc._count.ownedProperties,
       propertyRequestCount: doc._count.propertyRequests,
@@ -125,6 +133,7 @@ export class AdminUsersService {
   ): Promise<UserAdminViewDto> {
     const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
     if (!user) throw new NotFoundException('User not found');
+    await this.assertCanModifyTarget(user, actorUserId);
 
     const updated = await this.prisma.user.update({
       where: { id: user.id },
@@ -159,6 +168,7 @@ export class AdminUsersService {
   async approveBroker(userId: string, actorUserId: string): Promise<UserAdminViewDto> {
     const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
     if (!user) throw new NotFoundException('User not found');
+    await this.assertCanModifyTarget(user, actorUserId);
     if (user.role !== Role.Broker) throw new BadRequestException('User is not a broker');
 
     await this.prisma.brokerProfile.update({
@@ -176,6 +186,22 @@ export class AdminUsersService {
     return this.toView(user);
   }
 
+  /**
+   * The owner / super-admin account is edit-locked: only the owner may modify
+   * their own account; no other admin can touch it.
+   */
+  private async assertCanModifyTarget(
+    target: { id: string; isOwner: boolean },
+    actorUserId: string
+  ): Promise<void> {
+    if (!target.isOwner) return;
+    if (target.id === actorUserId) return;
+    throw new ForbiddenException({
+      code: 'ownerProtected',
+      message: 'The owner account cannot be modified by another admin'
+    });
+  }
+
   private async toView(user: {
     id: string;
     email: string | null;
@@ -184,6 +210,7 @@ export class AdminUsersService {
     role: string | null;
     isActive: boolean;
     isVerified: boolean;
+    isOwner: boolean;
     createdAt: Date;
   }): Promise<UserAdminViewDto> {
     const [propertyCount, propertyRequestCount, brokerProfile] = await Promise.all([
@@ -206,6 +233,7 @@ export class AdminUsersService {
       role: user.role as Role | null,
       isActive: user.isActive,
       isVerified: user.isVerified,
+      isOwner: user.isOwner,
       createdAt: user.createdAt,
       propertyCount,
       propertyRequestCount,

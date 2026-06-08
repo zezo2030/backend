@@ -30,7 +30,13 @@ export class AdminPropertiesService {
   }> {
     const page = query.page ?? 1;
     const pageSize = Math.min(query.pageSize ?? 20, 100);
-    const where = query.moderationStatus ? { moderationStatus: query.moderationStatus } : {};
+    const where: Prisma.PropertyWhereInput = {};
+    if (query.moderationStatus) where.moderationStatus = query.moderationStatus;
+    if (query.id) where.id = query.id;
+    const search = query.search?.trim();
+    if (search) {
+      where.title = { contains: search, mode: 'insensitive' };
+    }
 
     const [docs, totalItems] = await Promise.all([
       this.prisma.property.findMany({
