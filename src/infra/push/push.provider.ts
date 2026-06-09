@@ -51,27 +51,14 @@ const toFcmData = (message: PushMessage): Record<string, string> => ({
   )
 });
 
-// Notification channel id that the mobile app creates via Notifee (notifee.ts).
-const ANDROID_CHANNEL_ID = 'requests';
-
-// We send BOTH a `notification` block (so the OS auto-displays the alert when
-// the app is backgrounded or killed — required on iOS, reliable on Android) and
-// the `data` block (so a tap can deep-link). In the foreground the app surfaces
-// its own Notifee notification, so no duplicate is shown.
+// Android: data-only so the mobile background handler surfaces the alert via
+// Notifee with the branded large icon. iOS: APNS alert (required when killed).
 const toFcmMessage = (token: string, message: PushMessage): Message => ({
   token,
-  notification: { title: message.title, body: message.body },
   data: toFcmData(message),
   android: {
     priority: 'high',
-    ttl: 86400000,
-    notification: {
-      channelId: ANDROID_CHANNEL_ID,
-      priority: 'high',
-      visibility: 'public',
-      defaultSound: true,
-      defaultVibrateTimings: true
-    }
+    ttl: 86400000
   },
   apns: {
     headers: { 'apns-priority': '10' },
@@ -115,7 +102,6 @@ export class FcmAdapter implements PushDispatcher {
     const fcmMessage = toFcmMessage(tokens[0] ?? '', message);
     const response = await messaging.sendEachForMulticast({
       tokens,
-      notification: fcmMessage.notification,
       data: fcmMessage.data,
       android: fcmMessage.android,
       apns: fcmMessage.apns

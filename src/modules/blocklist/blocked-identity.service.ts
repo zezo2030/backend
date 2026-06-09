@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  type OnModuleInit
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 
@@ -18,8 +24,50 @@ export const normalizePhone = (phone?: string | null): string | null =>
   phone ? phone.trim() || null : null;
 
 @Injectable()
-export class BlockedIdentityService {
+export class BlockedIdentityService implements OnModuleInit {
+  private readonly logger = new Logger(BlockedIdentityService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit(): Promise<void> {
+    try {
+      const added = await this.reconcileFromDeletedUsers();
+      if (added > 0) {
+        this.logger.log(`Backfilled ${added} blocked identity row(s) from deleted accounts.`);
+      }
+    } catch (error) {
+      // Best-effort reconciliation — never block API startup.
+      this.logger.error(`Blocked-identity reconciliation failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Ensures every soft-deleted user has matching blocked_identity rows. Covers
+   * accounts deleted before the blocklist feature shipped or before redeploy.
+   */
+  async reconcileFromDeletedUsers(): Promise<number> {
+    const deleted = await this.prisma.user.findMany({
+      where: { deletedAt: { not: null } },
+      select: { id: true, email: true, phone: true }
+    });
+    const data: Prisma.BlockedIdentityCreateManyInput[] = [];
+    for (const user of deleted) {
+      const email = normalizeEmail(user.email);
+      const phone = normalizePhone(user.phone);
+      if (email) {
+        data.push({ email, reason: 'account_deleted', createdBy: user.id });
+      }
+      if (phone) {
+        data.push({ phone, reason: 'account_deleted', createdBy: user.id });
+      }
+    }
+    if (data.length === 0) return 0;
+    const result = await this.prisma.blockedIdentity.createMany({
+      data,
+      skipDuplicates: true
+    });
+    return result.count;
+  }
 
   /**
    * Build the create rows for blocking a deleted account's identity. Email and

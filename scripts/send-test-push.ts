@@ -57,7 +57,6 @@ async function main(): Promise<void> {
 
   initFirebase();
   const messaging = getMessaging();
-  const ANDROID_CHANNEL_ID = 'requests';
   const title = 'اختبار Firebase';
   const body = 'إشعار تجريبي من الـ backend — إذا وصلتك الرسالة فـ FCM شغال ✅';
   const notification = await prisma.notification.create({
@@ -74,7 +73,6 @@ async function main(): Promise<void> {
   const response = await messaging.sendEach(
     tokens.map(({ token }) => ({
       token,
-      notification: { title, body },
       data: {
         type: NotificationType.admin_broadcast,
         title,
@@ -85,14 +83,7 @@ async function main(): Promise<void> {
       },
       android: {
         priority: 'high' as const,
-        ttl: 86400000,
-        notification: {
-          channelId: ANDROID_CHANNEL_ID,
-          priority: 'high' as const,
-          visibility: 'public' as const,
-          defaultSound: true,
-          defaultVibrateTimings: true
-        }
+        ttl: 86400000
       },
       apns: {
         headers: { 'apns-priority': '10' },
