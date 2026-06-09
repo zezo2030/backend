@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { ModerationStatus } from '../../properties/property.enums.js';
+import { AvailabilityStatus, ModerationStatus } from '../../properties/property.enums.js';
 
 export class AdminPropertiesListQueryDto {
   @IsOptional()
@@ -39,6 +39,21 @@ export enum ModerationAction {
 export class AdminPropertyModerationDto {
   @IsEnum(ModerationAction)
   action!: ModerationAction;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
+export class AdminPropertyStatusDto {
+  @IsOptional()
+  @IsEnum(ModerationStatus)
+  moderationStatus?: ModerationStatus;
+
+  @IsOptional()
+  @IsEnum(AvailabilityStatus)
+  availabilityStatus?: AvailabilityStatus;
 
   @IsOptional()
   @IsString()

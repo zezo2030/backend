@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { PropertyRequestStatus } from '../../property-requests/property-request.enums.js';
 
 export class AdminPropertyRequestsListQueryDto {
@@ -19,4 +19,14 @@ export class AdminPropertyRequestsListQueryDto {
   @IsOptional()
   @IsEnum(PropertyRequestStatus)
   status?: PropertyRequestStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+}
+
+export class AdminPropertyRequestStatusDto {
+  @IsEnum(PropertyRequestStatus)
+  status!: PropertyRequestStatus;
 }

@@ -12,8 +12,14 @@ import {
   propertyInclude,
   type PropertyDto
 } from '../properties/properties.query.service.js';
+import { toDecimal } from '../../common/prisma/decimal.util.js';
+import type { PropertyUpdateDto } from '../properties/dto/property-write.dto.js';
 import { ModerationStatus } from '../properties/property.enums.js';
-import { ModerationAction, type AdminPropertyModerationDto } from './dto/admin-properties.dto.js';
+import {
+  ModerationAction,
+  type AdminPropertyModerationDto,
+  type AdminPropertyStatusDto
+} from './dto/admin-properties.dto.js';
 import type { AdminPropertiesListQueryDto } from './dto/admin-properties.dto.js';
 
 @Injectable()
@@ -30,12 +36,21 @@ export class AdminPropertiesService {
   }> {
     const page = query.page ?? 1;
     const pageSize = Math.min(query.pageSize ?? 20, 100);
-    const where: Prisma.PropertyWhereInput = {};
+    const where: Prisma.PropertyWhereInput = { deletedAt: null };
     if (query.moderationStatus) where.moderationStatus = query.moderationStatus;
     if (query.id) where.id = query.id;
     const search = query.search?.trim();
     if (search) {
-      where.title = { contains: search, mode: 'insensitive' };
+      where.OR = [
+        { id: search },
+        { title: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+        { area: { contains: search, mode: 'insensitive' } },
+        { owner: { displayName: { contains: search, mode: 'insensitive' } } },
+        { owner: { email: { contains: search, mode: 'insensitive' } } },
+        { owner: { phone: { contains: search, mode: 'insensitive' } } },
+        ...this.dateSearch(search)
+      ];
     }
 
     const [docs, totalItems] = await Promise.all([
@@ -107,5 +122,138 @@ export class AdminPropertiesService {
     });
 
     return this.query.mapDto(property);
+  }
+
+  async updateDetails(
+    id: string,
+    dto: PropertyUpdateDto,
+    actorUserId: string
+  ): Promise<PropertyDto> {
+    const data: Prisma.PropertyUpdateInput = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.price !== undefined) data.price = toDecimal(dto.price);
+    if (dto.currency !== undefined) data.currency = dto.currency;
+    if (dto.city !== undefined) data.city = dto.city;
+    if (dto.area !== undefined) data.area = dto.area;
+    if (dto.address !== undefined) data.address = dto.address;
+    if (dto.rooms !== undefined) data.rooms = dto.rooms;
+    if (dto.bathrooms !== undefined) data.bathrooms = dto.bathrooms;
+    if (dto.sizeSqm !== undefined) data.sizeSqm = dto.sizeSqm;
+    if (dto.floor !== undefined) data.floor = dto.floor;
+    if (dto.finishing !== undefined) data.finishing = dto.finishing;
+    if (dto.furnished !== undefined) data.furnished = dto.furnished;
+
+    let property;
+    try {
+      property = await this.prisma.property.update({
+        where: { id, deletedAt: null },
+        data,
+        include: propertyInclude
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Property not found');
+      }
+      throw error;
+    }
+
+    await this.auditLogger.log({
+      actorUserId,
+      action: 'listing.updated',
+      targetType: 'property',
+      targetId: property.id
+    });
+
+    return this.query.mapDto(property);
+  }
+
+  async updateStatus(
+    id: string,
+    dto: AdminPropertyStatusDto,
+    actorUserId: string
+  ): Promise<PropertyDto> {
+    const data: Prisma.PropertyUpdateInput = {};
+
+    if (dto.moderationStatus !== undefined) {
+      data.moderationStatus = dto.moderationStatus;
+      if (dto.moderationStatus === ModerationStatus.rejected) {
+        if (!dto.reason?.trim()) {
+          throw new UnprocessableEntityException({
+            code: 'rejectionReasonRequired',
+            message: 'reason is required when rejecting a listing'
+          });
+        }
+        data.rejectionReason = dto.reason.trim();
+      } else {
+        data.rejectionReason = null;
+      }
+    }
+    if (dto.availabilityStatus !== undefined) {
+      data.availabilityStatus = dto.availabilityStatus;
+    }
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('No status fields provided');
+    }
+
+    let property;
+    try {
+      property = await this.prisma.property.update({
+        where: { id, deletedAt: null },
+        data,
+        include: propertyInclude
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Property not found');
+      }
+      throw error;
+    }
+
+    await this.auditLogger.log({
+      actorUserId,
+      action: 'listing.status_updated',
+      targetType: 'property',
+      targetId: property.id,
+      metadata: {
+        moderationStatus: dto.moderationStatus,
+        availabilityStatus: dto.availabilityStatus,
+        reason: dto.reason
+      }
+    });
+
+    return this.query.mapDto(property);
+  }
+
+  async softDelete(id: string, actorUserId: string): Promise<void> {
+    let property;
+    try {
+      property = await this.prisma.property.update({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
+        select: { id: true }
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Property not found');
+      }
+      throw error;
+    }
+
+    await this.auditLogger.log({
+      actorUserId,
+      action: 'listing.deleted',
+      targetType: 'property',
+      targetId: property.id
+    });
+  }
+
+  private dateSearch(search: string): Prisma.PropertyWhereInput[] {
+    const date = new Date(search);
+    if (Number.isNaN(date.getTime())) return [];
+
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    return [{ createdAt: { gte: date, lt: nextDay } }];
   }
 }
