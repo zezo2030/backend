@@ -1,16 +1,9 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { toDecimal } from '../../common/prisma/decimal.util.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
-import { ObjectStoreService } from '../../infra/objectstore/object-store.service.js';
 import type {
   MinePropertiesQueryDto,
   PropertyAvailabilityDto,
@@ -22,26 +15,17 @@ import {
   propertyInclude,
   type PropertyWithImages
 } from './properties.query.service.js';
-import {
-  AvailabilityStatus,
-  ModerationStatus,
-  type PropertyImageRecord,
-  type PropertyVideoRecord
-} from './property.enums.js';
+import { PropertyMediaService } from './property-media.service.js';
+import { AvailabilityStatus, ModerationStatus } from './property.enums.js';
 
 @Injectable()
 export class PropertiesCommandService {
-  private readonly videoMaxBytes: number;
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly objectStore: ObjectStoreService,
+    private readonly media: PropertyMediaService,
     private readonly auditLogger: AuditLogger,
-    private readonly query: PropertiesQueryService,
-    config: ConfigService
-  ) {
-    this.videoMaxBytes = config.getOrThrow<number>('videoMaxBytes');
-  }
+    private readonly query: PropertiesQueryService
+  ) {}
 
   async create(
     dto: PropertyCreateDto,
@@ -53,8 +37,8 @@ export class PropertiesCommandService {
     });
     if (!owner?.role) throw new ForbiddenException('Account has no role');
 
-    const images = await this.headImages(dto.imageObjectKeys);
-    const videos = await this.headVideos(dto.videoObjectKeys ?? []);
+    const images = await this.media.headImages(dto.imageObjectKeys);
+    const videos = await this.media.headVideos(dto.videoObjectKeys ?? []);
 
     const created = await this.prisma.$transaction(async (tx) => {
       return tx.property.create({
@@ -75,7 +59,9 @@ export class PropertiesCommandService {
           floor: dto.floor ?? null,
           finishing: dto.finishing ?? null,
           furnished: dto.furnished ?? null,
-          moderationStatus: ModerationStatus.active,
+          contactName: dto.contactName ?? null,
+          contactPhone: dto.contactPhone ?? null,
+          moderationStatus: ModerationStatus.pending_review,
           availabilityStatus: AvailabilityStatus.available,
           rejectionReason: null,
           viewsCount: 0,
@@ -108,7 +94,7 @@ export class PropertiesCommandService {
       action: 'listing.created',
       targetType: 'property',
       targetId: created.id,
-      metadata: { moderationStatus: ModerationStatus.active }
+      metadata: { moderationStatus: ModerationStatus.pending_review }
     });
 
     return this.query.mapDto(created);
@@ -124,11 +110,15 @@ export class PropertiesCommandService {
     const data: Prisma.PropertyUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
+    if (dto.propertyType !== undefined) data.propertyType = dto.propertyType;
+    if (dto.listingType !== undefined) data.listingType = dto.listingType;
     if (dto.price !== undefined) data.price = toDecimal(dto.price);
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.city !== undefined) data.city = dto.city;
     if (dto.area !== undefined) data.area = dto.area;
     if (dto.address !== undefined) data.address = dto.address;
+    if (dto.contactName !== undefined) data.contactName = dto.contactName.trim() || null;
+    if (dto.contactPhone !== undefined) data.contactPhone = dto.contactPhone.trim() || null;
     if (dto.rooms !== undefined) data.rooms = dto.rooms;
     if (dto.bathrooms !== undefined) data.bathrooms = dto.bathrooms;
     if (dto.sizeSqm !== undefined) data.sizeSqm = dto.sizeSqm;
@@ -138,7 +128,7 @@ export class PropertiesCommandService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.imageObjectKeys !== undefined) {
-        const images = await this.headImages(dto.imageObjectKeys);
+        const images = await this.media.headImages(dto.imageObjectKeys);
         await tx.propertyImage.deleteMany({ where: { propertyId: property.id } });
         await tx.propertyImage.createMany({
           data: images.map((img) => ({
@@ -152,7 +142,7 @@ export class PropertiesCommandService {
         });
       }
       if (dto.videoObjectKeys !== undefined) {
-        const videos = await this.headVideos(dto.videoObjectKeys);
+        const videos = await this.media.headVideos(dto.videoObjectKeys);
         await tx.propertyVideo.deleteMany({ where: { propertyId: property.id } });
         await tx.propertyVideo.createMany({
           data: videos.map((vid) => ({
@@ -223,74 +213,6 @@ export class PropertiesCommandService {
       items,
       pageInfo: { page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) }
     };
-  }
-
-  private async headImages(objectKeys: string[]): Promise<PropertyImageRecord[]> {
-    const now = new Date();
-    const images: PropertyImageRecord[] = [];
-    for (let index = 0; index < objectKeys.length; index += 1) {
-      const objectKey = objectKeys[index]!;
-      const head = await this.objectStore.head(objectKey);
-      if (!head) {
-        throw new UnprocessableEntityException({
-          code: 'uploadMissing',
-          message: `Object not found in storage: ${objectKey}`
-        });
-      }
-      // The stored Content-Type is client-supplied and can lie (a serialized RN
-      // Blob was once uploaded as image/png). Validate the real bytes.
-      if (!(await this.objectStore.isValidImage(objectKey))) {
-        throw new UnprocessableEntityException({
-          code: 'uploadInvalidImage',
-          message: `Uploaded object is not a valid image: ${objectKey}`
-        });
-      }
-      images.push({
-        objectKey,
-        contentType: head.contentType,
-        sizeBytes: head.sizeBytes,
-        sortOrder: index,
-        uploadedAt: now
-      });
-    }
-    return images;
-  }
-
-  private async headVideos(objectKeys: string[]): Promise<PropertyVideoRecord[]> {
-    const now = new Date();
-    const videos: PropertyVideoRecord[] = [];
-    for (let index = 0; index < objectKeys.length; index += 1) {
-      const objectKey = objectKeys[index]!;
-      const head = await this.objectStore.head(objectKey);
-      if (!head) {
-        throw new UnprocessableEntityException({
-          code: 'uploadMissing',
-          message: `Object not found in storage: ${objectKey}`
-        });
-      }
-      if (head.sizeBytes > this.videoMaxBytes) {
-        throw new UnprocessableEntityException({
-          code: 'videoTooLarge',
-          message: `Uploaded video exceeds ${this.videoMaxBytes} bytes: ${objectKey}`
-        });
-      }
-      // Content-Type is client-supplied and untrustworthy — validate the real
-      // bytes (the `ftyp` box) the same way images are checked.
-      if (!(await this.objectStore.isValidVideo(objectKey))) {
-        throw new UnprocessableEntityException({
-          code: 'uploadInvalidVideo',
-          message: `Uploaded object is not a valid video: ${objectKey}`
-        });
-      }
-      videos.push({
-        objectKey,
-        contentType: head.contentType,
-        sizeBytes: head.sizeBytes,
-        sortOrder: index,
-        uploadedAt: now
-      });
-    }
-    return videos;
   }
 
   private async findOwnedOrAdmin(id: string, callerId: string): Promise<PropertyWithImages> {

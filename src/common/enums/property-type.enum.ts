@@ -4,5 +4,6 @@ export enum PropertyType {
   Land = 'land',
   Shop = 'shop',
   Villa = 'villa',
-  Building = 'building'
+  Building = 'building',
+  Commercial = 'commercial'
 }

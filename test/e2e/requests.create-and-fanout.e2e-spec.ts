@@ -1,5 +1,6 @@
 ﻿import request from 'supertest';
 import { FanoutWorker } from '../../src/modules/fanout/fanout.worker.js';
+import { adminSession } from '../helpers/admin-helpers.js';
 import {
   closeAuthTestApp,
   createAuthTestApp,
@@ -20,7 +21,8 @@ describe('property requests create and fanout (e2e)', () => {
     await closeAuthTestApp(testApp);
   });
 
-  it('returns 202 quickly, writes outbox, and fanout creates recipient notifications', async () => {
+  it('creates a pending request without fanout; admin approval triggers fanout + notifications', async () => {
+    const admin = await adminSession(testApp, 'u5552000000@test.local');
     const requester = await sessionWithRole('u5552000001@test.local', 'RegularUser');
     const broker = await sessionWithRole('u5552000002@test.local', 'Broker');
     await seedToken(broker.user.id, 'broker-token');
@@ -35,11 +37,18 @@ describe('property requests create and fanout (e2e)', () => {
 
     expect(Date.now() - startedAt).toBeLessThan(1000);
     const requestId = (response.body as { id: string }).id;
-    expect(
-      await testApp.prisma.fanoutOutbox.count({
-        where: { requestId }
-      })
-    ).toBe(1);
+    expect((response.body as { moderationStatus: string }).moderationStatus).toBe('pending_review');
+
+    // No fanout yet — the request must be approved by an admin first.
+    expect(await testApp.prisma.fanoutOutbox.count({ where: { requestId } })).toBe(0);
+
+    await request(httpServer(testApp))
+      .patch(`/api/v1/admin/property-requests/${requestId}/status`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ moderationStatus: 'active' })
+      .expect(200);
+
+    expect(await testApp.prisma.fanoutOutbox.count({ where: { requestId } })).toBe(1);
 
     await testApp.app.get(FanoutWorker).drainOnce();
     expect(

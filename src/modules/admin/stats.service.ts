@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '../../common/enums/role.enum.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { ModerationStatus } from '../properties/property.enums.js';
-import { PropertyRequestStatus } from '../property-requests/property-request.enums.js';
 import { ReportStatus } from '../reports/report.enums.js';
 
 export interface StatsDto {
@@ -43,6 +41,21 @@ export class StatsService {
 
   invalidate(): void {
     this.cached = null;
+  }
+
+  /**
+   * Lightweight, uncached count of items awaiting admin review. Polled
+   * frequently by the dashboard to drive the moderation badge + toast, so it
+   * must stay cheap (two indexed counts) and never serve a stale cached value.
+   */
+  async getPendingCount(): Promise<{ properties: number; requests: number; total: number }> {
+    const properties = await this.prisma.property.count({
+      where: { deletedAt: null, moderationStatus: ModerationStatus.pending_review }
+    });
+    const requests = await this.prisma.propertyRequest.count({
+      where: { deletedAt: null, moderationStatus: ModerationStatus.pending_review }
+    });
+    return { properties, requests, total: properties + requests };
   }
 
   private async compute(): Promise<StatsDto> {

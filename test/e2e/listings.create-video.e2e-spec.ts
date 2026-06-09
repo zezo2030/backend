@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { adminSession } from '../helpers/admin-helpers.js';
 import {
   closeAuthTestApp,
   createAuthTestApp,
@@ -83,6 +84,14 @@ describe('listings create with video (e2e)', () => {
     expect(body.images).toHaveLength(1);
     expect(body.videos).toHaveLength(1);
     expect(body.videos[0]!.url).toBeTruthy();
+
+    // New listings are pending; approve so the public detail endpoint serves it.
+    const admin = await adminSession(testApp, 'u5550009000@test.local');
+    await request(httpServer(testApp))
+      .post(`/api/v1/admin/properties/${body.id}/moderation`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ action: 'approve' })
+      .expect(200);
 
     const detail = await request(httpServer(testApp))
       .get(`/api/v1/properties/${body.id}`)

@@ -1,6 +1,7 @@
 ﻿import request from 'supertest';
 import { FanoutOutboxStatus } from '../../src/modules/fanout/fanout.enums.js';
 import { FanoutWorker } from '../../src/modules/fanout/fanout.worker.js';
+import { adminSession } from '../helpers/admin-helpers.js';
 import {
   closeAuthTestApp,
   createAuthTestApp,
@@ -33,6 +34,14 @@ describe('property requests fanout idempotency (e2e)', () => {
       .expect(202);
     const requestId = (created.body as { id: string }).id;
     const worker = testApp.app.get(FanoutWorker);
+
+    // Approval enqueues the fanout outbox row.
+    const admin = await adminSession(testApp, 'u5552000100@test.local');
+    await request(httpServer(testApp))
+      .patch(`/api/v1/admin/property-requests/${requestId}/status`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ moderationStatus: 'active' })
+      .expect(200);
 
     await worker.drainOnce();
     await testApp.prisma.fanoutOutbox.update({

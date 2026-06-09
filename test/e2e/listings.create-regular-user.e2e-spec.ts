@@ -74,11 +74,12 @@ describe('listings create — regular user (e2e)', () => {
       })
       .expect(201);
     const createdBody = created.body as PropertyResponse;
-    expect(createdBody.moderationStatus).toBe('active');
+    // New listings await admin review: hidden from the public feed, visible to the owner.
+    expect(createdBody.moderationStatus).toBe('pending_review');
 
     const feed = await request(httpServer(testApp)).get('/api/v1/properties').expect(200);
     expect((feed.body as FeedResponse).items.some((item) => item.id === createdBody.id)).toBe(
-      true
+      false
     );
 
     const mine = await request(httpServer(testApp))
@@ -88,7 +89,7 @@ describe('listings create — regular user (e2e)', () => {
     const mineBody = mine.body as MineResponse;
     expect(mineBody.items.some((item) => item.id === createdBody.id)).toBe(true);
     expect(mineBody.items.find((item) => item.id === createdBody.id)?.moderationStatus).toBe(
-      'active'
+      'pending_review'
     );
   });
 });

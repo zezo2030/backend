@@ -1,4 +1,5 @@
 ﻿import request from 'supertest';
+import { adminSession } from '../helpers/admin-helpers.js';
 import {
   closeAuthTestApp,
   createAuthTestApp,
@@ -72,6 +73,15 @@ describe('listings owner edit/status/delete (e2e)', () => {
       .expect(201);
     const propertyId = (created.body as PropertyResponse).id;
 
+    // Listings now start pending; approve it so the rest of the lifecycle
+    // (public feed/detail visibility) behaves as before.
+    const admin = await adminSession(testApp, 'u5550004044@test.local');
+    await request(httpServer(testApp))
+      .post(`/api/v1/admin/properties/${propertyId}/moderation`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ action: 'approve' })
+      .expect(200);
+
     const edited = await request(httpServer(testApp))
       .patch(`/api/v1/properties/${propertyId}`)
       .set('Authorization', `Bearer ${session.accessToken}`)
@@ -108,7 +118,7 @@ describe('listings owner edit/status/delete (e2e)', () => {
     expect(deletedDoc?.deletedAt).toBeInstanceOf(Date);
   });
 
-  it('regular-user edits to moderation-relevant fields stay active', async () => {
+  it('regular-user edits do not change the moderation status (stays pending review)', async () => {
     const session = await issueSession(testApp, 'u5550004005@test.local');
     await request(httpServer(testApp))
       .post('/api/v1/auth/select-role')
@@ -151,6 +161,6 @@ describe('listings owner edit/status/delete (e2e)', () => {
       .set('Authorization', `Bearer ${session.accessToken}`)
       .send({ title: 'Suspicious New Title' })
       .expect(200);
-    expect((edited.body as PropertyResponse).moderationStatus).toBe('active');
+    expect((edited.body as PropertyResponse).moderationStatus).toBe('pending_review');
   });
 });

@@ -1,6 +1,7 @@
 ﻿import request from 'supertest';
 import { FanoutWorker } from '../../src/modules/fanout/fanout.worker.js';
 import { PUSH_DISPATCHER, type PushDispatcher } from '../../src/infra/push/push.provider.js';
+import { adminSession } from '../helpers/admin-helpers.js';
 import {
   closeAuthTestApp,
   createAuthTestApp,
@@ -54,11 +55,21 @@ describe('device tokens (e2e)', () => {
     stub.dispatchLog.length = 0;
 
     const payload = await makePropertyRequestPayload(testApp.prisma);
-    await request(httpServer(testApp))
+    const createdRequest = await request(httpServer(testApp))
       .post('/api/v1/property-requests')
       .set('Authorization', `Bearer ${requester.accessToken}`)
       .send(payload)
       .expect(202);
+
+    // Approval enqueues the broker fanout.
+    const admin = await adminSession(testApp, 'u5555000000@test.local');
+    await request(httpServer(testApp))
+      .patch(
+        `/api/v1/admin/property-requests/${(createdRequest.body as { id: string }).id}/status`
+      )
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ moderationStatus: 'active' })
+      .expect(200);
 
     await testApp.app.get(FanoutWorker).drainOnce();
 

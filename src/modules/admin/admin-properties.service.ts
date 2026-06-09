@@ -12,6 +12,7 @@ import {
   propertyInclude,
   type PropertyDto
 } from '../properties/properties.query.service.js';
+import { PropertyMediaService } from '../properties/property-media.service.js';
 import { toDecimal } from '../../common/prisma/decimal.util.js';
 import type { PropertyUpdateDto } from '../properties/dto/property-write.dto.js';
 import { ModerationStatus } from '../properties/property.enums.js';
@@ -27,6 +28,7 @@ export class AdminPropertiesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly query: PropertiesQueryService,
+    private readonly media: PropertyMediaService,
     private readonly auditLogger: AuditLogger
   ) {}
 
@@ -132,11 +134,15 @@ export class AdminPropertiesService {
     const data: Prisma.PropertyUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
+    if (dto.propertyType !== undefined) data.propertyType = dto.propertyType;
+    if (dto.listingType !== undefined) data.listingType = dto.listingType;
     if (dto.price !== undefined) data.price = toDecimal(dto.price);
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.city !== undefined) data.city = dto.city;
     if (dto.area !== undefined) data.area = dto.area;
     if (dto.address !== undefined) data.address = dto.address;
+    if (dto.contactName !== undefined) data.contactName = dto.contactName.trim() || null;
+    if (dto.contactPhone !== undefined) data.contactPhone = dto.contactPhone.trim() || null;
     if (dto.rooms !== undefined) data.rooms = dto.rooms;
     if (dto.bathrooms !== undefined) data.bathrooms = dto.bathrooms;
     if (dto.sizeSqm !== undefined) data.sizeSqm = dto.sizeSqm;
@@ -146,10 +152,40 @@ export class AdminPropertiesService {
 
     let property;
     try {
-      property = await this.prisma.property.update({
-        where: { id, deletedAt: null },
-        data,
-        include: propertyInclude
+      property = await this.prisma.$transaction(async (tx) => {
+        if (dto.imageObjectKeys !== undefined) {
+          const images = await this.media.headImages(dto.imageObjectKeys);
+          await tx.propertyImage.deleteMany({ where: { propertyId: id } });
+          await tx.propertyImage.createMany({
+            data: images.map((img) => ({
+              propertyId: id,
+              objectKey: img.objectKey,
+              contentType: img.contentType,
+              sizeBytes: img.sizeBytes,
+              sortOrder: img.sortOrder,
+              uploadedAt: img.uploadedAt
+            }))
+          });
+        }
+        if (dto.videoObjectKeys !== undefined) {
+          const videos = await this.media.headVideos(dto.videoObjectKeys);
+          await tx.propertyVideo.deleteMany({ where: { propertyId: id } });
+          await tx.propertyVideo.createMany({
+            data: videos.map((vid) => ({
+              propertyId: id,
+              objectKey: vid.objectKey,
+              contentType: vid.contentType,
+              sizeBytes: vid.sizeBytes,
+              sortOrder: vid.sortOrder,
+              uploadedAt: vid.uploadedAt
+            }))
+          });
+        }
+        return tx.property.update({
+          where: { id, deletedAt: null },
+          data,
+          include: propertyInclude
+        });
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {

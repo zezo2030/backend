@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException
+} from '@nestjs/common';
 import { Prisma, type PropertyRequest } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
 import { decimalToNumber, toDecimal } from '../../common/prisma/decimal.util.js';
 import { ObjectStoreUrlService } from '../../infra/objectstore/object-store-url.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { FanoutOutboxStatus } from '../fanout/fanout.enums.js';
+import { ModerationStatus } from '../properties/property.enums.js';
 import type { PropertyRequestUpdateDto } from '../property-requests/dto/property-requests.dto.js';
 import type {
   AdminPropertyRequestStatusDto,
@@ -33,7 +40,11 @@ export interface AdminPropertyRequestDto {
   approxSizeSqm: number | null;
   isUrgent: boolean;
   contactMethod: string;
+  contactName: string | null;
+  contactPhone: string | null;
   status: string;
+  moderationStatus: string;
+  rejectionReason: string | null;
   expiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -55,7 +66,8 @@ export class AdminPropertyRequestsService {
     const pageSize = Math.min(query.pageSize ?? 20, 100);
     const where: Prisma.PropertyRequestWhereInput = {
       deletedAt: null,
-      ...(query.status ? { status: query.status } : {})
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.moderationStatus ? { moderationStatus: query.moderationStatus } : {})
     };
     const search = query.search?.trim();
     if (search) {
@@ -98,11 +110,38 @@ export class AdminPropertyRequestsService {
     dto: AdminPropertyRequestStatusDto,
     actorUserId: string
   ): Promise<AdminPropertyRequestDto> {
+    if (dto.status === undefined && dto.moderationStatus === undefined) {
+      throw new BadRequestException('No status fields provided');
+    }
+
+    const existing = await this.prisma.propertyRequest.findFirst({
+      where: { id, deletedAt: null },
+      select: { moderationStatus: true }
+    });
+    if (!existing) throw new NotFoundException('Property request not found');
+
+    const data: Prisma.PropertyRequestUpdateInput = {};
+    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.moderationStatus !== undefined) {
+      data.moderationStatus = dto.moderationStatus;
+      if (dto.moderationStatus === ModerationStatus.rejected) {
+        if (!dto.reason?.trim()) {
+          throw new UnprocessableEntityException({
+            code: 'rejectionReasonRequired',
+            message: 'reason is required when rejecting a request'
+          });
+        }
+        data.rejectionReason = dto.reason.trim();
+      } else {
+        data.rejectionReason = null;
+      }
+    }
+
     let request;
     try {
       request = await this.prisma.propertyRequest.update({
         where: { id, deletedAt: null },
-        data: { status: dto.status }
+        data
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
@@ -111,12 +150,29 @@ export class AdminPropertyRequestsService {
       throw error;
     }
 
+    // First-time approval fans the request out to brokers. The outbox row is
+    // keyed by the unique requestId, so re-approving never re-notifies.
+    const justApproved =
+      dto.moderationStatus === ModerationStatus.active &&
+      existing.moderationStatus !== ModerationStatus.active;
+    if (justApproved) {
+      await this.prisma.fanoutOutbox.upsert({
+        where: { requestId: request.id },
+        create: { requestId: request.id, status: FanoutOutboxStatus.pending },
+        update: {}
+      });
+    }
+
     await this.auditLogger.log({
       actorUserId,
       action: 'property_request.status_updated',
       targetType: 'property_request',
       targetId: request.id,
-      metadata: { status: dto.status }
+      metadata: {
+        status: dto.status,
+        moderationStatus: dto.moderationStatus,
+        reason: dto.reason
+      }
     });
 
     return this.toDto(request);
@@ -141,6 +197,8 @@ export class AdminPropertyRequestsService {
     if (dto.approxSizeSqm !== undefined) data.approxSizeSqm = dto.approxSizeSqm;
     if (dto.isUrgent !== undefined) data.isUrgent = dto.isUrgent;
     if (dto.contactMethod !== undefined) data.contactMethod = dto.contactMethod;
+    if (dto.contactName !== undefined) data.contactName = dto.contactName.trim() || null;
+    if (dto.contactPhone !== undefined) data.contactPhone = dto.contactPhone.trim() || null;
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.expiresAt !== undefined) {
       data.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
@@ -210,7 +268,11 @@ export class AdminPropertyRequestsService {
       approxSizeSqm: request.approxSizeSqm ?? null,
       isUrgent: request.isUrgent,
       contactMethod: request.contactMethod,
+      contactName: request.contactName ?? null,
+      contactPhone: request.contactPhone ?? null,
       status: request.status,
+      moderationStatus: request.moderationStatus,
+      rejectionReason: request.rejectionReason ?? null,
       expiresAt: request.expiresAt,
       createdAt: request.createdAt,
       updatedAt: request.updatedAt

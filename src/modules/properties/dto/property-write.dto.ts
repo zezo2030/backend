@@ -52,6 +52,16 @@ export class PropertyCreateDto {
   @MaxLength(500)
   address?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  contactName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contactPhone?: string;
+
   @Transform(({ value }) => Number(value))
   @IsInt()
   @Min(0)
@@ -105,6 +115,14 @@ export class PropertyUpdateDto {
   description?: string;
 
   @IsOptional()
+  @IsEnum(PropertyType)
+  propertyType?: PropertyType;
+
+  @IsOptional()
+  @IsEnum(ListingType)
+  listingType?: ListingType;
+
+  @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsNumber()
   @Min(0.01)
@@ -129,6 +147,16 @@ export class PropertyUpdateDto {
   @IsString()
   @MaxLength(500)
   address?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  contactName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contactPhone?: string;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))

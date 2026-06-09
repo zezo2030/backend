@@ -79,11 +79,12 @@ describe('listings create — broker (e2e)', () => {
       })
       .expect(201);
     const createdBody = created.body as PropertyResponse;
-    expect(createdBody.moderationStatus).toBe('active');
+    // New listings await admin review and must not appear in the public feed.
+    expect(createdBody.moderationStatus).toBe('pending_review');
     expect(createdBody.images).toHaveLength(2);
 
     const feed = await request(httpServer(testApp)).get('/api/v1/properties').expect(200);
     const feedBody = feed.body as FeedResponse;
-    expect(feedBody.items.some((item) => item.id === createdBody.id)).toBe(true);
+    expect(feedBody.items.some((item) => item.id === createdBody.id)).toBe(false);
   });
 });

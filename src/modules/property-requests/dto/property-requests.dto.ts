@@ -70,6 +70,16 @@ export class PropertyRequestCreateDto {
   contactMethod!: ContactMethod;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  contactName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contactPhone?: string;
+
+  @IsOptional()
   @IsDateString()
   expiresAt?: string;
 }
@@ -139,6 +149,16 @@ export class PropertyRequestUpdateDto {
   @IsOptional()
   @IsEnum(ContactMethod)
   contactMethod?: ContactMethod;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  contactName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contactPhone?: string;
 
   @IsOptional()
   @IsEnum(PropertyRequestStatus)

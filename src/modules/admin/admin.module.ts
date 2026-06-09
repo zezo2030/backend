@@ -9,6 +9,7 @@ import { PropertiesModule } from '../properties/properties.module.js';
 import { AdminBroadcastController } from './admin-broadcast.controller.js';
 import { AdminLocationsController } from './admin-locations.controller.js';
 import { AdminLocationsService } from './admin-locations.service.js';
+import { AdminModerationController } from './admin-moderation.controller.js';
 import { AdminPropertiesController } from './admin-properties.controller.js';
 import { AdminPropertiesService } from './admin-properties.service.js';
 import { AdminPropertyRequestsController } from './admin-property-requests.controller.js';
@@ -36,7 +37,8 @@ import { StatsService } from './stats.service.js';
     AdminPropertyRequestsController,
     AdminLocationsController,
     AdminBroadcastController,
-    AdminStatsController
+    AdminStatsController,
+    AdminModerationController
   ],
   providers: [
     AdminUsersService,

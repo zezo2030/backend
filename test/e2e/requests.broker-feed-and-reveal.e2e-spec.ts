@@ -1,4 +1,5 @@
 ﻿import request from 'supertest';
+import { adminSession } from '../helpers/admin-helpers.js';
 import {
   closeAuthTestApp,
   createAuthTestApp,
@@ -30,6 +31,14 @@ describe('property requests broker feed and contact reveal (e2e)', () => {
       .send(await makePropertyRequestPayload(testApp.prisma))
       .expect(202);
     const createdBody = created.body as { id: string };
+
+    // Requests are pending on creation; approve so it surfaces to brokers.
+    const admin = await adminSession(testApp, 'u5552000300@test.local');
+    await request(httpServer(testApp))
+      .patch(`/api/v1/admin/property-requests/${createdBody.id}/status`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ moderationStatus: 'active' })
+      .expect(200);
 
     await request(httpServer(testApp))
       .get('/api/v1/property-requests')

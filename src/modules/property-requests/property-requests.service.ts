@@ -8,9 +8,9 @@ import type { PropertyRequest } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { decimalToNumber, toDecimal } from '../../common/prisma/decimal.util.js';
 import { AuditLogger } from '../../common/logging/audit-logger.service.js';
+import { ModerationStatus } from '../properties/property.enums.js';
 import { ObjectStoreUrlService } from '../../infra/objectstore/object-store-url.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
-import { FanoutOutboxStatus } from '../fanout/fanout.enums.js';
 import {
   MinePropertyRequestsQueryDto,
   PropertyRequestCreateDto,
@@ -41,7 +41,11 @@ export interface PropertyRequestDto {
   approxSizeSqm: number | null;
   isUrgent: boolean;
   contactMethod: string;
+  contactName: string | null;
+  contactPhone: string | null;
   status: string;
+  moderationStatus: string;
+  rejectionReason: string | null;
   expiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -60,31 +64,31 @@ export class PropertyRequestsService {
       throw new UnprocessableEntityException('maxPrice must be greater than minPrice');
     }
 
-    const request = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.propertyRequest.create({
-        data: {
-          requesterId,
-          title: dto.title,
-          description: dto.description,
-          propertyType: dto.propertyType,
-          requestType: dto.requestType,
-          city: dto.city,
-          area: dto.area,
-          minPrice: toDecimal(dto.minPrice),
-          maxPrice: toDecimal(dto.maxPrice),
-          currency: dto.currency,
-          requiredRooms: dto.requiredRooms,
-          approxSizeSqm: dto.approxSizeSqm ?? null,
-          isUrgent: dto.isUrgent ?? false,
-          contactMethod: dto.contactMethod,
-          expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
-          status: PropertyRequestStatus.open
-        }
-      });
-      await tx.fanoutOutbox.create({
-        data: { requestId: created.id, status: FanoutOutboxStatus.pending }
-      });
-      return created;
+    // New requests start in pending_review and are NOT fanned out to brokers
+    // yet — the broker fan-out is triggered only once an admin approves the
+    // request (see AdminPropertyRequestsService.updateStatus).
+    const request = await this.prisma.propertyRequest.create({
+      data: {
+        requesterId,
+        title: dto.title,
+        description: dto.description,
+        propertyType: dto.propertyType,
+        requestType: dto.requestType,
+        city: dto.city,
+        area: dto.area,
+        minPrice: toDecimal(dto.minPrice),
+        maxPrice: toDecimal(dto.maxPrice),
+        currency: dto.currency,
+        requiredRooms: dto.requiredRooms,
+        approxSizeSqm: dto.approxSizeSqm ?? null,
+        isUrgent: dto.isUrgent ?? false,
+        contactMethod: dto.contactMethod,
+        contactName: dto.contactName ?? null,
+        contactPhone: dto.contactPhone ?? null,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+        status: PropertyRequestStatus.open,
+        moderationStatus: ModerationStatus.pending_review
+      }
     });
 
     return this.toDto(request, await this.mapDisplayProfile(request.requesterId));
@@ -96,6 +100,7 @@ export class PropertyRequestsService {
     const where = {
       deletedAt: null,
       status: PropertyRequestStatus.open,
+      moderationStatus: ModerationStatus.active,
       AND: [
         { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
         ...(query.city ? [{ city: { equals: query.city, mode: 'insensitive' as const } }] : []),
@@ -185,7 +190,7 @@ export class PropertyRequestsService {
     const request = await this.findExisting(id);
     const requester = await this.prisma.user.findUnique({
       where: { id: request.requesterId },
-      select: { email: true, phone: true }
+      select: { email: true, phone: true, displayName: true }
     });
     if (!requester) throw new NotFoundException('Property request not found');
     await this.auditLogger.log({
@@ -195,10 +200,14 @@ export class PropertyRequestsService {
       targetId: request.id,
       requestId
     });
+    // A per-listing contact override (set/corrected by an admin) takes
+    // precedence over the requester account's own contact details.
+    const phone = request.contactPhone ?? requester.phone ?? null;
     return {
+      name: request.contactName ?? requester.displayName,
       email: requester.email,
-      phone: requester.phone ?? null,
-      whatsappUrl: requester.phone ? `https://wa.me/${requester.phone.replace(/\D/g, '')}` : null
+      phone,
+      whatsappUrl: phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : null
     };
   }
 
@@ -211,11 +220,10 @@ export class PropertyRequestsService {
   }
 
   private canRead(request: PropertyRequest, callerId: string, callerRole: Role | null): boolean {
-    return (
-      request.requesterId === callerId ||
-      callerRole === Role.Broker ||
-      callerRole === Role.Admin
-    );
+    // The owner and admins can always see the request (including while it is
+    // pending review). Brokers may only see it once it has been approved.
+    if (request.requesterId === callerId || callerRole === Role.Admin) return true;
+    return callerRole === Role.Broker && request.moderationStatus === ModerationStatus.active;
   }
 
   private async toDtoWithRequester(request: PropertyRequest): Promise<PropertyRequestDto> {
@@ -265,7 +273,11 @@ export class PropertyRequestsService {
       approxSizeSqm: request.approxSizeSqm ?? null,
       isUrgent: request.isUrgent,
       contactMethod: request.contactMethod,
+      contactName: request.contactName ?? null,
+      contactPhone: request.contactPhone ?? null,
       status: request.status,
+      moderationStatus: request.moderationStatus,
+      rejectionReason: request.rejectionReason ?? null,
       expiresAt: request.expiresAt,
       createdAt: request.createdAt,
       updatedAt: request.updatedAt

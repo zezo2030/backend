@@ -36,6 +36,8 @@ export interface PropertyDto extends Omit<PropertySummaryDto, 'primaryImageUrl'>
   owner: DisplayProfileDto;
   description: string;
   address: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
   bathrooms: number;
   floor: number | null;
   finishing: string | null;
@@ -43,12 +45,13 @@ export interface PropertyDto extends Omit<PropertySummaryDto, 'primaryImageUrl'>
   moderationStatus: string;
   rejectionReason: string | null;
   viewsCount: number;
-  images: Array<{ url: string; sortOrder: number }>;
-  videos: Array<{ url: string; sortOrder: number }>;
+  images: Array<{ url: string; sortOrder: number; objectKey: string }>;
+  videos: Array<{ url: string; sortOrder: number; objectKey: string }>;
   updatedAt: Date;
 }
 
 export interface ContactInfoDto {
+  name: string;
   email: string;
   phone: string | null;
   whatsappUrl: string | null;
@@ -119,7 +122,7 @@ export class PropertiesQueryService {
     const property = await this.findVisibleProperty(id);
     const owner = await this.prisma.user.findUnique({
       where: { id: property.ownerId },
-      select: { email: true, phone: true }
+      select: { email: true, phone: true, displayName: true }
     });
     if (!owner) throw new NotFoundException('Property not found');
 
@@ -131,10 +134,14 @@ export class PropertiesQueryService {
       requestId
     });
 
+    // A per-listing contact override (set/corrected by an admin) takes
+    // precedence over the owner account's own contact details.
+    const phone = property.contactPhone ?? owner.phone ?? null;
     return {
+      name: property.contactName ?? owner.displayName,
       email: owner.email ?? '',
-      phone: owner.phone ?? null,
-      whatsappUrl: owner.phone ? `https://wa.me/${owner.phone.replace(/\D/g, '')}` : null
+      phone,
+      whatsappUrl: phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : null
     };
   }
 
@@ -247,6 +254,8 @@ export class PropertiesQueryService {
       owner,
       description: property.description,
       address: property.address ?? null,
+      contactName: property.contactName ?? null,
+      contactPhone: property.contactPhone ?? null,
       bathrooms: property.bathrooms,
       floor: property.floor,
       finishing: property.finishing,
@@ -262,10 +271,11 @@ export class PropertiesQueryService {
 
   private async toMediaDto(
     media: PropertyImage | PropertyVideo
-  ): Promise<{ url: string; sortOrder: number }> {
+  ): Promise<{ url: string; sortOrder: number; objectKey: string }> {
     return {
       url: await this.mediaUrl(media.objectKey),
-      sortOrder: media.sortOrder
+      sortOrder: media.sortOrder,
+      objectKey: media.objectKey
     };
   }
 

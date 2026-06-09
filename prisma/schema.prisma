@@ -21,6 +21,7 @@ enum PropertyType {
   shop
   villa
   building
+  commercial
 }
 
 enum ListingType {
@@ -254,13 +255,15 @@ model Property {
   city               String
   area               String
   address            String?
+  contactName        String?
+  contactPhone       String?
   rooms              Int
   bathrooms          Int
   sizeSqm            Float
   floor              Int?
   finishing          Finishing?
   furnished          FurnishedStatus?
-  moderationStatus   ModerationStatus
+  moderationStatus   ModerationStatus   @default(pending_review)
   availabilityStatus AvailabilityStatus @default(available)
   rejectionReason    String?
   viewsCount         Int                @default(0)
@@ -324,23 +327,29 @@ model PropertyRequest {
   minPrice      Decimal               @db.Decimal(19, 4)
   maxPrice      Decimal               @db.Decimal(19, 4)
   currency      String
-  requiredRooms Int
-  approxSizeSqm Float?
-  isUrgent      Boolean               @default(false)
-  contactMethod ContactMethod
-  status        PropertyRequestStatus @default(open)
-  expiresAt     DateTime?
-  deletedAt     DateTime?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  requiredRooms    Int
+  approxSizeSqm    Float?
+  isUrgent         Boolean               @default(false)
+  contactMethod    ContactMethod
+  contactName      String?
+  contactPhone     String?
+  status           PropertyRequestStatus @default(open)
+  moderationStatus ModerationStatus      @default(pending_review)
+  rejectionReason  String?
+  expiresAt        DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   requester     User           @relation(fields: [requesterId], references: [id])
   fanoutOutbox  FanoutOutbox?
   notifications Notification[]
 
   @@index([deletedAt, status, expiresAt, createdAt(sort: Desc)])
+  @@index([deletedAt, moderationStatus, status, createdAt(sort: Desc)], map: "property_requests_review_feed_idx")
   @@index([requesterId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
+  @@index([moderationStatus, createdAt(sort: Desc)])
   @@map("property_requests")
 }
 
