@@ -9,12 +9,18 @@ export interface AppSettings {
   sliderEnabled: boolean;
   maxListingImages: number;
   maxListingVideos: number;
+  /** Support contact phone (international format). Empty = call button hidden. */
+  supportPhone: string;
+  /** Support WhatsApp number or wa.me URL. Empty = WhatsApp button hidden. */
+  supportWhatsapp: string;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   sliderEnabled: true,
   maxListingImages: 15,
-  maxListingVideos: 1
+  maxListingVideos: 1,
+  supportPhone: '',
+  supportWhatsapp: ''
 };
 
 export const APP_SETTING_KEYS = Object.keys(DEFAULT_APP_SETTINGS) as Array<keyof AppSettings>;

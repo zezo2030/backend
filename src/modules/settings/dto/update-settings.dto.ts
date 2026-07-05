@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -19,4 +19,16 @@ export class UpdateSettingsDto {
   @Min(1)
   @Max(1)
   maxListingVideos?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(32)
+  supportPhone?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(64)
+  supportWhatsapp?: string;
 }
