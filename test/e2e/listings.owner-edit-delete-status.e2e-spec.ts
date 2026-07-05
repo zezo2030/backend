@@ -49,7 +49,7 @@ describe('listings owner edit/status/delete (e2e)', () => {
       .send({ items: [{ contentType: 'image/jpeg', sizeBytes: 2048 }] })
       .expect(201);
     const upload = (uploadResp.body as UploadResponse).uploads[0]!;
-    testApp.objectStore.putObject(upload.objectKey);
+    testApp.objectStore.putTestObject(upload.objectKey);
 
     const city = await seedCity(testApp.prisma, 'owner-edit-city');
     const area = await seedArea(testApp.prisma, city.id, 'owner-edit-area');
@@ -132,7 +132,7 @@ describe('listings owner edit/status/delete (e2e)', () => {
       .send({ items: [{ contentType: 'image/jpeg', sizeBytes: 2048 }] })
       .expect(201);
     const upload = (uploadResp.body as UploadResponse).uploads[0]!;
-    testApp.objectStore.putObject(upload.objectKey);
+    testApp.objectStore.putTestObject(upload.objectKey);
 
     const city = await seedCity(testApp.prisma, 'user-edit-city');
     const area = await seedArea(testApp.prisma, city.id, 'user-edit-area');

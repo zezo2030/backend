@@ -10,7 +10,7 @@ export const envValidationSchema = Joi.object({
     .uri({ scheme: ['postgresql', 'postgres'] })
     .optional(),
   JWT_ACCESS_SECRET: Joi.string().min(16).required(),
-  JWT_ACCESS_TTL_SEC: Joi.number().integer().positive().default(900),
+  JWT_ACCESS_TTL_SEC: Joi.number().integer().positive().default(86400),
   JWT_REFRESH_SECRET: Joi.string().min(16).required(),
   JWT_REFRESH_TTL_SEC: Joi.number().integer().positive().default(2592000),
   FIREBASE_PROJECT_ID: Joi.when('PUSH_PROVIDER', {
@@ -28,9 +28,23 @@ export const envValidationSchema = Joi.object({
   SUPABASE_STORAGE_PRESIGN_TTL_SEC: Joi.number().integer().positive().default(600),
   IMAGE_MAX_BYTES: Joi.number().integer().positive().default(8388608),
   VIDEO_MAX_BYTES: Joi.number().integer().positive().default(104857600),
+  MEDIA_COMPRESSION_ENABLED: Joi.boolean().default(true),
+  IMAGE_MAX_DIMENSION: Joi.number().integer().positive().default(1920),
+  IMAGE_WEBP_QUALITY: Joi.number().integer().min(1).max(100).default(80),
+  IMAGE_SKIP_BELOW_BYTES: Joi.number().integer().positive().default(307200),
+  VIDEO_MAX_HEIGHT: Joi.number().integer().positive().default(720),
+  VIDEO_CRF: Joi.number().integer().min(0).max(51).default(28),
+  VIDEO_SKIP_BELOW_BYTES: Joi.number().integer().positive().default(5242880),
+  VIDEO_TRANSCODE_TIMEOUT_MS: Joi.number().integer().positive().default(120000),
   OWNER_EMAIL: Joi.string().email().allow('').optional(),
   ANDROID_PACKAGE_NAME: Joi.string().allow('').optional(),
   ANDROID_CERT_SHA256: Joi.string().allow('').optional(),
+  ANDROID_PACKAGE_NAME_2: Joi.string().allow('').optional(),
+  ANDROID_CERT_SHA256_2: Joi.string().allow('').optional(),
+  ANDROID_RELATIONS_2: Joi.string().allow('').optional(),
+  ANDROID_APPS: Joi.string().allow('').optional(),
+  ANDROID_ASSET_LINKS_JSON: Joi.string().allow('').optional(),
+  ANDROID_ASSET_LINKS_PATH: Joi.string().allow('').optional(),
   DEV_RUN_WORKER: Joi.boolean().default(false),
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')

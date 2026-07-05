@@ -6,6 +6,7 @@ export interface FakeObjectMetadata {
 
 export class FakeObjectStore {
   private readonly objects = new Map<string, FakeObjectMetadata>();
+  private readonly bodies = new Map<string, Buffer>();
   public readonly presignedRequests: Array<{
     objectKey: string;
     contentType: string;
@@ -14,13 +15,23 @@ export class FakeObjectStore {
 
   reset(): void {
     this.objects.clear();
+    this.bodies.clear();
     this.presignedRequests.length = 0;
   }
 
-  putObject(objectKey: string, metadata: Partial<FakeObjectMetadata> = {}): void {
+  putTestObject(objectKey: string, metadata: Partial<FakeObjectMetadata> = {}): void {
+    const body =
+      metadata.sizeBytes !== undefined
+        ? Buffer.alloc(metadata.sizeBytes, 0xab)
+        : Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0]);
+    this.seedObject(objectKey, body, metadata);
+  }
+
+  private seedObject(objectKey: string, body: Buffer, metadata: Partial<FakeObjectMetadata> = {}): void {
+    this.bodies.set(objectKey, body);
     this.objects.set(objectKey, {
       contentType: metadata.contentType ?? 'image/jpeg',
-      sizeBytes: metadata.sizeBytes ?? 1024,
+      sizeBytes: metadata.sizeBytes ?? body.length,
       lastModified: metadata.lastModified ?? new Date()
     });
   }
@@ -40,12 +51,19 @@ export class FakeObjectStore {
     return Promise.resolve({ contentType: meta.contentType, sizeBytes: meta.sizeBytes });
   }
 
-  peekBytes(objectKey: string, _length: number): Promise<Buffer | null> {
-    if (!this.objects.has(objectKey)) return Promise.resolve(null);
-    // Valid PNG magic header — stored test objects are treated as real images.
-    return Promise.resolve(
-      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0])
-    );
+  peekBytes(objectKey: string, length: number): Promise<Buffer | null> {
+    const body = this.bodies.get(objectKey);
+    if (!body) return Promise.resolve(null);
+    return Promise.resolve(body.subarray(0, length));
+  }
+
+  getObject(objectKey: string): Promise<Buffer | null> {
+    return Promise.resolve(this.bodies.get(objectKey) ?? null);
+  }
+
+  putObject(objectKey: string, body: Buffer, contentType: string): Promise<void> {
+    this.seedObject(objectKey, body, { contentType, sizeBytes: body.length });
+    return Promise.resolve();
   }
 
   isValidImage(objectKey: string): Promise<boolean> {

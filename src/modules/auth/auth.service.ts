@@ -238,7 +238,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const newRawToken = this.generateRefreshToken();
+    const newRawToken = this.generateRefreshToken(user.id);
     const newHash = await bcrypt.hash(newRawToken, 10);
     const expiresAt = new Date(
       Date.now() + this.config.get<number>('jwt.refreshTtlSec', 2592000) * 1000
@@ -357,7 +357,7 @@ export class AuthService {
     deviceId?: string,
     userAgent?: string
   ): Promise<AuthSession> {
-    const refreshToken = this.generateRefreshToken();
+    const refreshToken = this.generateRefreshToken(user.id);
     await this.prisma.refreshToken.create({
       data: {
         userId: user.id,
@@ -374,7 +374,7 @@ export class AuthService {
   }
 
   private async sessionWithRefresh(user: User, refreshToken: string): Promise<AuthSession> {
-    const expiresInSec = this.config.get<number>('jwt.accessTtlSec', 900);
+    const expiresInSec = this.config.get<number>('jwt.accessTtlSec', 86400);
     const accessToken = this.jwtService.sign(
       { sub: user.id, role: user.role, tokenVersion: user.tokenVersion },
       { expiresIn: expiresInSec }
@@ -398,14 +398,14 @@ export class AuthService {
   ): Promise<RefreshToken | null> {
     if (!rawRefreshToken) throw new UnprocessableEntityException('refreshToken is required');
     const now = new Date();
+    const scopedUserId = userId ?? this.parseRefreshTokenUserId(rawRefreshToken);
     const candidates = await this.prisma.refreshToken.findMany({
       where: {
         revokedAt: null,
         expiresAt: { gt: now },
-        ...(userId ? { userId } : {})
+        ...(scopedUserId ? { userId: scopedUserId } : {})
       },
-      orderBy: { issuedAt: 'desc' },
-      take: 100
+      orderBy: { issuedAt: 'desc' }
     });
     for (const candidate of candidates) {
       if (await bcrypt.compare(rawRefreshToken, candidate.tokenHash)) return candidate;
@@ -413,7 +413,15 @@ export class AuthService {
     return null;
   }
 
-  private generateRefreshToken(): string {
-    return randomBytes(32).toString('base64url');
+  /** Embeds userId so refresh lookup is scoped per user instead of a global cap. */
+  private generateRefreshToken(userId: string): string {
+    return `${userId}.${randomBytes(32).toString('base64url')}`;
+  }
+
+  private parseRefreshTokenUserId(rawRefreshToken: string): string | null {
+    const dot = rawRefreshToken.indexOf('.');
+    if (dot <= 0) return null;
+    const candidate = rawRefreshToken.slice(0, dot);
+    return /^c[a-z0-9]{20,}$/i.test(candidate) ? candidate : null;
   }
 }

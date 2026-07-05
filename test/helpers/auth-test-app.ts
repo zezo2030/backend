@@ -94,6 +94,7 @@ export async function createAuthTestApp(
   process.env.SUPABASE_STORAGE_BUCKET = 'realestate-test';
   process.env.SUPABASE_STORAGE_PRESIGN_TTL_SEC = String(options.presignTtlSec ?? 600);
   process.env.IMAGE_MAX_BYTES = '8388608';
+  process.env.MEDIA_COMPRESSION_ENABLED = 'false';
   process.env.DEV_RUN_WORKER = 'false';
   process.env.LOG_LEVEL = 'silent';
 

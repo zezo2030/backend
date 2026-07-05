@@ -27,6 +27,7 @@ import { BannersModule } from './modules/banners/banners.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { BlocklistModule } from './modules/blocklist/blocklist.module.js';
 import { WellKnownModule } from './modules/well-known/well-known.module.js';
+import { LegalModule } from './modules/legal/legal.module.js';
 
 @Module({
   imports: [
@@ -57,7 +58,8 @@ import { WellKnownModule } from './modules/well-known/well-known.module.js';
     BannersModule,
     SettingsModule,
     BlocklistModule,
-    WellKnownModule
+    WellKnownModule,
+    LegalModule
   ],
   providers: [
     {

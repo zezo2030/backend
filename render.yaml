@@ -48,6 +48,14 @@ envVarGroups:
         sync: false
       - key: OWNER_EMAIL
         value: mhd7190@gmail.com
+      - key: MEDIA_COMPRESSION_ENABLED
+        value: "true"
+      - key: IMAGE_MAX_DIMENSION
+        value: "1920"
+      - key: IMAGE_WEBP_QUALITY
+        value: "80"
+      - key: VIDEO_MAX_HEIGHT
+        value: "720"
 
 services:
   - type: web

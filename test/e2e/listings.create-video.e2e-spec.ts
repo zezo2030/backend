@@ -56,8 +56,8 @@ describe('listings create with video (e2e)', () => {
     const uploadBody = uploadResp.body as UploadResponse;
     const [imageKey, videoKey] = uploadBody.uploads.map((u) => u.objectKey);
     expect(videoKey).toMatch(/\.mp4$/);
-    testApp.objectStore.putObject(imageKey, { contentType: 'image/jpeg', sizeBytes: 2048 });
-    testApp.objectStore.putObject(videoKey, { contentType: 'video/mp4', sizeBytes: 4_194_304 });
+    testApp.objectStore.putTestObject(imageKey, { contentType: 'image/jpeg', sizeBytes: 2048 });
+    testApp.objectStore.putTestObject(videoKey, { contentType: 'video/mp4', sizeBytes: 4_194_304 });
 
     const city = await seedCity(testApp.prisma, 'video-city');
     const area = await seedArea(testApp.prisma, city.id, 'video-area');
@@ -103,9 +103,9 @@ describe('listings create with video (e2e)', () => {
     const session = await brokerSession('u5550009002@test.local');
     // An object whose real content is an image, offered as a video key.
     const imposterKey = `uploads/${session.user.id}/imposter.mp4`;
-    testApp.objectStore.putObject(imposterKey, { contentType: 'image/jpeg', sizeBytes: 2048 });
+    testApp.objectStore.putTestObject(imposterKey, { contentType: 'image/jpeg', sizeBytes: 2048 });
     const realImage = `uploads/${session.user.id}/cover.jpg`;
-    testApp.objectStore.putObject(realImage, { contentType: 'image/jpeg', sizeBytes: 2048 });
+    testApp.objectStore.putTestObject(realImage, { contentType: 'image/jpeg', sizeBytes: 2048 });
 
     const city = await seedCity(testApp.prisma, 'video-reject-city');
     const area = await seedArea(testApp.prisma, city.id, 'video-reject-area');

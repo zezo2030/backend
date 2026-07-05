@@ -1,5 +1,6 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MediaProcessorService } from '../../infra/objectstore/media-processor.service.js';
 import { ObjectStoreService } from '../../infra/objectstore/object-store.service.js';
 import type { PropertyImageRecord, PropertyVideoRecord } from './property.enums.js';
 
@@ -14,6 +15,7 @@ export class PropertyMediaService {
 
   constructor(
     private readonly objectStore: ObjectStoreService,
+    private readonly mediaProcessor: MediaProcessorService,
     config: ConfigService
   ) {
     this.videoMaxBytes = config.getOrThrow<number>('videoMaxBytes');
@@ -39,10 +41,11 @@ export class PropertyMediaService {
           message: `Uploaded object is not a valid image: ${objectKey}`
         });
       }
+      const optimized = await this.mediaProcessor.optimizeImage(objectKey, head);
       images.push({
-        objectKey,
-        contentType: head.contentType,
-        sizeBytes: head.sizeBytes,
+        objectKey: optimized.objectKey,
+        contentType: optimized.contentType,
+        sizeBytes: optimized.sizeBytes,
         sortOrder: index,
         uploadedAt: now
       });
@@ -76,10 +79,11 @@ export class PropertyMediaService {
           message: `Uploaded object is not a valid video: ${objectKey}`
         });
       }
+      const optimized = await this.mediaProcessor.optimizeVideo(objectKey, head);
       videos.push({
-        objectKey,
-        contentType: head.contentType,
-        sizeBytes: head.sizeBytes,
+        objectKey: optimized.objectKey,
+        contentType: optimized.contentType,
+        sizeBytes: optimized.sizeBytes,
         sortOrder: index,
         uploadedAt: now
       });

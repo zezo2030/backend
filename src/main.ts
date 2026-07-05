@@ -32,7 +32,8 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api', {
     exclude: [
       { path: 'health', method: RequestMethod.ALL },
-      { path: '.well-known/assetlinks.json', method: RequestMethod.GET }
+      { path: '.well-known/assetlinks.json', method: RequestMethod.GET },
+      { path: 'privacy-policy', method: RequestMethod.GET }
     ]
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

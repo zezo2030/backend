@@ -51,7 +51,7 @@ describe('listings create — regular user (e2e)', () => {
       .send({ items: [{ contentType: 'image/jpeg', sizeBytes: 2048 }] })
       .expect(201);
     const upload = (uploadResp.body as UploadResponse).uploads[0]!;
-    testApp.objectStore.putObject(upload.objectKey);
+    testApp.objectStore.putTestObject(upload.objectKey);
 
     const city = await seedCity(testApp.prisma, 'regular-listing-city');
     const area = await seedArea(testApp.prisma, city.id, 'regular-listing-area');

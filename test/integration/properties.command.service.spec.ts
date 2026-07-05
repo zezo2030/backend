@@ -49,7 +49,7 @@ describe('PropertiesCommandService (integration)', () => {
     const city = await seedCity(testApp.prisma, 'cmd-city-1');
     const area = await seedArea(testApp.prisma, city.id, 'cmd-area-1');
     const objectKey = `uploads/${broker.userId}/img-1.jpg`;
-    testApp.objectStore.putObject(objectKey, { contentType: 'image/jpeg', sizeBytes: 2048 });
+    testApp.objectStore.putTestObject(objectKey, { contentType: 'image/jpeg', sizeBytes: 2048 });
 
     const created = await service.create(
       {
@@ -98,7 +98,7 @@ describe('PropertiesCommandService (integration)', () => {
     const city = await seedCity(testApp.prisma, 'cmd-city-3');
     const area = await seedArea(testApp.prisma, city.id, 'cmd-area-3');
     const objectKey = `uploads/${user.userId}/img-1.jpg`;
-    testApp.objectStore.putObject(objectKey);
+    testApp.objectStore.putTestObject(objectKey);
 
     const created = await service.create(
       {
@@ -140,7 +140,7 @@ describe('PropertiesCommandService (integration)', () => {
     const city = await seedCity(testApp.prisma, 'cmd-city-4');
     const area = await seedArea(testApp.prisma, city.id, 'cmd-area-4');
     const objectKey = `uploads/${broker.userId}/img-1.jpg`;
-    testApp.objectStore.putObject(objectKey);
+    testApp.objectStore.putTestObject(objectKey);
 
     const created = await service.create(
       {

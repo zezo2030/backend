@@ -89,6 +89,26 @@ export class ObjectStoreService {
     return buf !== null && isSupportedVideo(buf);
   }
 
+  async getObject(objectKey: string): Promise<Buffer | null> {
+    const encodedPath = objectKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+    const response = await fetch(`${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`, {
+      headers: {
+        Authorization: `Bearer ${this.serviceRoleKey}`,
+        apikey: this.serviceRoleKey
+      }
+    });
+    if (!response.ok) return null;
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  async putObject(objectKey: string, body: Buffer, contentType: string): Promise<void> {
+    const { error } = await this.client.storage.from(this.bucket).upload(objectKey, body, {
+      contentType,
+      upsert: true
+    });
+    if (error) throw error;
+  }
+
   async deleteObjects(objectKeys: string[]): Promise<void> {
     if (objectKeys.length === 0) return;
     const { error } = await this.client.storage.from(this.bucket).remove(objectKeys);

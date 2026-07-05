@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Controller, Get, Header, VERSION_NEUTRAL } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AppConfig } from '../../config/configuration.js';
@@ -17,12 +19,15 @@ interface AssetLinkStatement {
  * `https://<host>/.well-known/assetlinks.json` so that `https://<host>/listing/:id`
  * (and `/request/:id`) links open the mobile app directly instead of the browser.
  *
- * The signing-cert fingerprint(s) come from `ANDROID_CERT_SHA256` (comma-separated
- * to allow both the upload key and Google Play App Signing key). The route is
- * version-neutral and excluded from the global `/api` prefix in `main.ts`.
+ * Resolution order:
+ * 1. `ANDROID_ASSET_LINKS_JSON` — paste the exact JSON from Google Play Console
+ * 2. `ANDROID_ASSET_LINKS_PATH` (default: `.well-known/assetlinks.json` in cwd)
+ * 3. `ANDROID_APPS` env (JSON array) or legacy `ANDROID_PACKAGE_NAME` + `ANDROID_CERT_SHA256`
  */
 @Controller({ path: '.well-known', version: VERSION_NEUTRAL })
 export class WellKnownController {
+  private cachedStatements: AssetLinkStatement[] | null = null;
+
   constructor(private readonly config: ConfigService<AppConfig, true>) {}
 
   @Public()
@@ -30,22 +35,41 @@ export class WellKnownController {
   @Header('Content-Type', 'application/json')
   @Header('Cache-Control', 'public, max-age=3600')
   assetLinks(): AssetLinkStatement[] {
-    const android = this.config.get('android', { infer: true });
-    const fingerprints = android?.certFingerprints ?? [];
-    if (fingerprints.length === 0) {
-      // No fingerprint configured yet — return a valid (empty) statement list so
-      // the endpoint exists; App Links verification stays pending until set.
-      return [];
+    if (this.cachedStatements) {
+      return this.cachedStatements;
     }
-    return [
-      {
-        relation: ['delegate_permission/common.handle_all_urls'],
+
+    const android = this.config.get('android', { infer: true });
+
+    if (android.assetLinksJson) {
+      this.cachedStatements = JSON.parse(android.assetLinksJson) as AssetLinkStatement[];
+      return this.cachedStatements;
+    }
+
+    const filePath =
+      android.assetLinksPath ?? join(process.cwd(), '.well-known', 'assetlinks.json');
+    if (existsSync(filePath)) {
+      this.cachedStatements = JSON.parse(readFileSync(filePath, 'utf8')) as AssetLinkStatement[];
+      return this.cachedStatements;
+    }
+
+    const apps = android.apps ?? [];
+    if (apps.length === 0) {
+      this.cachedStatements = [];
+      return this.cachedStatements;
+    }
+
+    this.cachedStatements = apps
+      .filter((app) => app.certFingerprints.length > 0)
+      .map((app) => ({
+        relation: app.relations,
         target: {
-          namespace: 'android_app',
-          package_name: android.packageName,
-          sha256_cert_fingerprints: fingerprints
+          namespace: 'android_app' as const,
+          package_name: app.packageName,
+          sha256_cert_fingerprints: app.certFingerprints
         }
-      }
-    ];
+      }));
+
+    return this.cachedStatements;
   }
 }

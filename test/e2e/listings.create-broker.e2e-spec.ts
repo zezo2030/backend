@@ -55,7 +55,7 @@ describe('listings create — broker (e2e)', () => {
     expect(uploadBody.uploads).toHaveLength(2);
     for (const upload of uploadBody.uploads) {
       expect(upload.objectKey).toMatch(new RegExp(`^uploads/${session.user.id}/`));
-      testApp.objectStore.putObject(upload.objectKey, { sizeBytes: 2048 });
+      testApp.objectStore.putTestObject(upload.objectKey, { sizeBytes: 2048 });
     }
 
     const city = await seedCity(testApp.prisma, 'broker-listing-city');

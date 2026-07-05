@@ -26,10 +26,23 @@ export interface AppConfig {
   };
   imageMaxBytes: number;
   videoMaxBytes: number;
+  mediaCompression: {
+    enabled: boolean;
+    imageMaxDimension: number;
+    imageWebpQuality: number;
+    imageSkipBelowBytes: number;
+    videoMaxHeight: number;
+    videoCrf: number;
+    videoSkipBelowBytes: number;
+    videoTranscodeTimeoutMs: number;
+  };
   ownerEmail: string;
   android: {
     packageName: string;
     certFingerprints: string[];
+    assetLinksJson?: string;
+    assetLinksPath?: string;
+    apps: AndroidAppConfig[];
   };
   devRunWorker: boolean;
   logLevel: string;
@@ -51,9 +64,70 @@ export interface AppConfig {
   };
 }
 
+export interface AndroidAppConfig {
+  packageName: string;
+  certFingerprints: string[];
+  relations: string[];
+}
+
 const boolFromEnv = (value: string | undefined, fallback: boolean): boolean => {
   if (value === undefined || value === '') return fallback;
   return value === 'true';
+};
+
+const DEFAULT_HANDLE_URLS = 'delegate_permission/common.handle_all_urls';
+
+const parseAndroidApps = (): AndroidAppConfig[] => {
+  const raw = process.env.ANDROID_APPS?.trim();
+  if (raw) {
+    const parsed = JSON.parse(raw) as Array<{
+      packageName: string;
+      certFingerprints?: string[];
+      fingerprints?: string[];
+      relations?: string[];
+    }>;
+    return parsed.map((app) => ({
+      packageName: app.packageName.trim(),
+      certFingerprints: (app.certFingerprints ?? app.fingerprints ?? [])
+        .map((fp) => fp.trim().toUpperCase())
+        .filter(Boolean),
+      relations: app.relations?.length ? app.relations : [DEFAULT_HANDLE_URLS]
+    }));
+  }
+
+  const legacyPackage = (process.env.ANDROID_PACKAGE_NAME ?? 'com.realestatemobile').trim();
+  const legacyFingerprints = (process.env.ANDROID_CERT_SHA256 ?? '')
+    .split(',')
+    .map((fp) => fp.trim().toUpperCase())
+    .filter(Boolean);
+
+  const apps: AndroidAppConfig[] = [];
+  if (legacyFingerprints.length > 0) {
+    apps.push({
+      packageName: legacyPackage,
+      certFingerprints: legacyFingerprints,
+      relations: [DEFAULT_HANDLE_URLS]
+    });
+  }
+
+  const package2 = process.env.ANDROID_PACKAGE_NAME_2?.trim();
+  const fingerprints2 = (process.env.ANDROID_CERT_SHA256_2 ?? '')
+    .split(',')
+    .map((fp) => fp.trim().toUpperCase())
+    .filter(Boolean);
+  if (package2 && fingerprints2.length > 0) {
+    const relations2 = (process.env.ANDROID_RELATIONS_2 ?? DEFAULT_HANDLE_URLS)
+      .split(',')
+      .map((r) => r.trim())
+      .filter(Boolean);
+    apps.push({
+      packageName: package2,
+      certFingerprints: fingerprints2,
+      relations: relations2
+    });
+  }
+
+  return apps;
 };
 
 export default (): AppConfig => ({
@@ -63,7 +137,7 @@ export default (): AppConfig => ({
   directDatabaseUrl: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '',
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET ?? '',
-    accessTtlSec: Number(process.env.JWT_ACCESS_TTL_SEC ?? 900),
+    accessTtlSec: Number(process.env.JWT_ACCESS_TTL_SEC ?? 86400),
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? '',
     refreshTtlSec: Number(process.env.JWT_REFRESH_TTL_SEC ?? 2592000)
   },
@@ -84,13 +158,26 @@ export default (): AppConfig => ({
   },
   imageMaxBytes: Number(process.env.IMAGE_MAX_BYTES ?? 8388608),
   videoMaxBytes: Number(process.env.VIDEO_MAX_BYTES ?? 104857600),
+  mediaCompression: {
+    enabled: boolFromEnv(process.env.MEDIA_COMPRESSION_ENABLED, true),
+    imageMaxDimension: Number(process.env.IMAGE_MAX_DIMENSION ?? 1920),
+    imageWebpQuality: Number(process.env.IMAGE_WEBP_QUALITY ?? 80),
+    imageSkipBelowBytes: Number(process.env.IMAGE_SKIP_BELOW_BYTES ?? 307200),
+    videoMaxHeight: Number(process.env.VIDEO_MAX_HEIGHT ?? 720),
+    videoCrf: Number(process.env.VIDEO_CRF ?? 28),
+    videoSkipBelowBytes: Number(process.env.VIDEO_SKIP_BELOW_BYTES ?? 5242880),
+    videoTranscodeTimeoutMs: Number(process.env.VIDEO_TRANSCODE_TIMEOUT_MS ?? 120000)
+  },
   ownerEmail: (process.env.OWNER_EMAIL ?? '').trim().toLowerCase(),
   android: {
     packageName: (process.env.ANDROID_PACKAGE_NAME ?? 'com.riden74.app').trim(),
     certFingerprints: (process.env.ANDROID_CERT_SHA256 ?? '')
       .split(',')
       .map((fp) => fp.trim().toUpperCase())
-      .filter(Boolean)
+      .filter(Boolean),
+    assetLinksJson: process.env.ANDROID_ASSET_LINKS_JSON?.trim() || undefined,
+    assetLinksPath: process.env.ANDROID_ASSET_LINKS_PATH?.trim() || undefined,
+    apps: parseAndroidApps()
   },
   devRunWorker: boolFromEnv(process.env.DEV_RUN_WORKER, false),
   logLevel: process.env.LOG_LEVEL ?? 'info',
