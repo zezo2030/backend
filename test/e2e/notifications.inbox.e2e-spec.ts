@@ -53,12 +53,7 @@ describe('notifications inbox (e2e)', () => {
           new Date(baseInstant + 500),
           new Date(baseInstant + 2000)
         ),
-        buildNotification(
-          otherUser.id,
-          'OtherUserNotification',
-          null,
-          new Date(baseInstant + 3000)
-        )
+        buildNotification(otherUser.id, 'OtherUserNotification', null, new Date(baseInstant + 3000))
       ]
     });
   });

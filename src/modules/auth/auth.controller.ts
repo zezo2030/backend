@@ -54,10 +54,7 @@ export class AuthController {
   @Public()
   @Post('phone/register')
   @HttpCode(201)
-  registerWithPhone(
-    @Body() dto: PhoneRegisterDto,
-    @Headers('user-agent') userAgent?: string
-  ) {
+  registerWithPhone(@Body() dto: PhoneRegisterDto, @Headers('user-agent') userAgent?: string) {
     return this.authService.registerWithPhone(
       dto.phone,
       dto.password,
@@ -71,12 +68,7 @@ export class AuthController {
   @Post('phone/login')
   @HttpCode(200)
   loginWithPhone(@Body() dto: PhoneLoginDto, @Headers('user-agent') userAgent?: string) {
-    return this.authService.loginWithPhone(
-      dto.phone,
-      dto.password,
-      dto.deviceId,
-      userAgent
-    );
+    return this.authService.loginWithPhone(dto.phone, dto.password, dto.deviceId, userAgent);
   }
 
   @Public()
@@ -127,11 +119,7 @@ export class AuthController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: ChangeOwnerPasswordDto
   ): Promise<void> {
-    return this.authService.changeOwnerPassword(
-      user.sub,
-      dto.currentPassword,
-      dto.newPassword
-    );
+    return this.authService.changeOwnerPassword(user.sub, dto.currentPassword, dto.newPassword);
   }
 
   @UseGuards(JwtAuthGuard, AccountActiveGuard)

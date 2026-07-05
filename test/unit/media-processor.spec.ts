@@ -26,10 +26,7 @@ describe('MediaProcessorService', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true, load: [configuration] })],
-      providers: [
-        MediaProcessorService,
-        { provide: ObjectStoreService, useValue: objectStore }
-      ]
+      providers: [MediaProcessorService, { provide: ObjectStoreService, useValue: objectStore }]
     }).compile();
 
     processor = moduleRef.get(MediaProcessorService);

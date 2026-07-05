@@ -53,9 +53,7 @@ describe('properties contact reveal (e2e)', () => {
   });
 
   it('requires auth, returns contact info for authed callers, and writes an audit event', async () => {
-    await request(httpServer(testApp))
-      .get(`/api/v1/properties/${propertyId}/contact`)
-      .expect(401);
+    await request(httpServer(testApp)).get(`/api/v1/properties/${propertyId}/contact`).expect(401);
 
     await request(httpServer(testApp))
       .get(`/api/v1/properties/${propertyId}/contact`)

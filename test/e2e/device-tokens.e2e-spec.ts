@@ -64,9 +64,7 @@ describe('device tokens (e2e)', () => {
     // Approval enqueues the broker fanout.
     const admin = await adminSession(testApp, 'u5555000000@test.local');
     await request(httpServer(testApp))
-      .patch(
-        `/api/v1/admin/property-requests/${(createdRequest.body as { id: string }).id}/status`
-      )
+      .patch(`/api/v1/admin/property-requests/${(createdRequest.body as { id: string }).id}/status`)
       .set('Authorization', `Bearer ${admin.accessToken}`)
       .send({ moderationStatus: 'active' })
       .expect(200);

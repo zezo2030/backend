@@ -16,7 +16,10 @@ export class ObjectStoreUrlService {
   }
 
   publicUrl(objectKey: string): string {
-    const encodedPath = objectKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+    const encodedPath = objectKey
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
     return `${this.publicBaseUrl}/${encodedPath}`;
   }
 

@@ -48,7 +48,7 @@ const PHONE_REGEX = /^\+[1-9]\d{6,14}$/;
 
 export class PhoneRegisterDto {
   @IsString()
-  @Matches(PHONE_REGEX, {message: 'phone must be a valid E.164 number'})
+  @Matches(PHONE_REGEX, { message: 'phone must be a valid E.164 number' })
   @MaxLength(20)
   phone!: string;
 
@@ -70,7 +70,7 @@ export class PhoneRegisterDto {
 
 export class PhoneLoginDto {
   @IsString()
-  @Matches(PHONE_REGEX, {message: 'phone must be a valid E.164 number'})
+  @Matches(PHONE_REGEX, { message: 'phone must be a valid E.164 number' })
   @MaxLength(20)
   phone!: string;
 

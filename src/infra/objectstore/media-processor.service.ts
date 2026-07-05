@@ -58,7 +58,10 @@ export class MediaProcessorService {
     );
   }
 
-  async optimizeImage(objectKey: string, head: { contentType: string; sizeBytes: number }): Promise<ProcessedObject> {
+  async optimizeImage(
+    objectKey: string,
+    head: { contentType: string; sizeBytes: number }
+  ): Promise<ProcessedObject> {
     if (!this.enabled) {
       return { objectKey, contentType: head.contentType, sizeBytes: head.sizeBytes };
     }
@@ -83,9 +86,7 @@ export class MediaProcessorService {
         ? pipeline.resize({ width: this.imageMaxDimension, withoutEnlargement: true })
         : pipeline;
 
-      const output = await resized
-        .webp({ quality: this.imageWebpQuality, effort: 4 })
-        .toBuffer();
+      const output = await resized.webp({ quality: this.imageWebpQuality, effort: 4 }).toBuffer();
 
       if (output.length >= input.length && head.contentType === 'image/webp' && !resizeNeeded) {
         return { objectKey, contentType: head.contentType, sizeBytes: head.sizeBytes };
@@ -114,7 +115,10 @@ export class MediaProcessorService {
     }
   }
 
-  async optimizeVideo(objectKey: string, head: { contentType: string; sizeBytes: number }): Promise<ProcessedObject> {
+  async optimizeVideo(
+    objectKey: string,
+    head: { contentType: string; sizeBytes: number }
+  ): Promise<ProcessedObject> {
     if (!this.enabled) {
       return { objectKey, contentType: head.contentType, sizeBytes: head.sizeBytes };
     }

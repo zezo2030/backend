@@ -29,10 +29,7 @@ export class AdminUsersController {
   }
 
   @Patch(':id/approve-broker')
-  approveBroker(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser
-  ) {
+  approveBroker(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.adminUsers.approveBroker(id, user.sub);
   }
 }

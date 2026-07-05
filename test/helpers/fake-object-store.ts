@@ -27,7 +27,11 @@ export class FakeObjectStore {
     this.seedObject(objectKey, body, metadata);
   }
 
-  private seedObject(objectKey: string, body: Buffer, metadata: Partial<FakeObjectMetadata> = {}): void {
+  private seedObject(
+    objectKey: string,
+    body: Buffer,
+    metadata: Partial<FakeObjectMetadata> = {}
+  ): void {
     this.bodies.set(objectKey, body);
     this.objects.set(objectKey, {
       contentType: metadata.contentType ?? 'image/jpeg',

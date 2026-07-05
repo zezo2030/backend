@@ -21,9 +21,7 @@ export class ReportTargetReconciler {
       .map((r) => r.targetId);
     const userIds = openReports
       .filter(
-        (r) =>
-          r.targetType === ReportTargetType.user ||
-          r.targetType === ReportTargetType.broker
+        (r) => r.targetType === ReportTargetType.user || r.targetType === ReportTargetType.broker
       )
       .map((r) => r.targetId);
 
@@ -46,9 +44,7 @@ export class ReportTargetReconciler {
       ...deletedProperties.map((doc) => doc.id),
       ...deletedUsers.map((doc) => doc.id)
     ]);
-    const reportsToFlag = openReports
-      .filter((r) => deletedSet.has(r.targetId))
-      .map((r) => r.id);
+    const reportsToFlag = openReports.filter((r) => deletedSet.has(r.targetId)).map((r) => r.id);
     if (reportsToFlag.length === 0) return 0;
 
     const result = await this.prisma.report.updateMany({

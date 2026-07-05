@@ -21,13 +21,17 @@ export class UpdateSettingsDto {
   maxListingVideos?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }): string | undefined =>
+    typeof value === 'string' ? value.trim() : undefined
+  )
   @IsString()
   @MaxLength(32)
   supportPhone?: string;
 
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }): string | undefined =>
+    typeof value === 'string' ? value.trim() : undefined
+  )
   @IsString()
   @MaxLength(64)
   supportWhatsapp?: string;

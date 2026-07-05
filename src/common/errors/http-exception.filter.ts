@@ -29,10 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     if (!(exception instanceof HttpException)) {
       const err = exception instanceof Error ? exception : new Error(String(exception));
-      this.logger.error(
-        `${request.method} ${request.url} → ${status}: ${err.message}`,
-        err.stack
-      );
+      this.logger.error(`${request.method} ${request.url} → ${status}: ${err.message}`, err.stack);
     }
     const body = this.toBody(exception, request.requestId ?? 'unknown');
     response.status(status).json(body);
@@ -81,9 +78,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
   }
 
-  private isErrorObject(
-    value: unknown
-  ): value is {
+  private isErrorObject(value: unknown): value is {
     code?: unknown;
     error?: unknown;
     message?: unknown;

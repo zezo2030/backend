@@ -152,7 +152,9 @@ describe('auth phone (e2e)', () => {
   });
 
   it('rejects invalid Firebase tokens', async () => {
-    verifyIdToken.mockRejectedValue(new UnauthorizedException('Invalid phone authentication token'));
+    verifyIdToken.mockRejectedValue(
+      new UnauthorizedException('Invalid phone authentication token')
+    );
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/phone')

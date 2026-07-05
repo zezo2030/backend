@@ -2,7 +2,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
-import { PUSH_DISPATCHER, type PushDispatcher, type PushTarget } from '../../infra/push/push.provider.js';
+import {
+  PUSH_DISPATCHER,
+  type PushDispatcher,
+  type PushTarget
+} from '../../infra/push/push.provider.js';
 import { DeviceTokensInvalidator } from '../notifications/device-tokens-invalidator.service.js';
 import { NotificationType } from '../notifications/notification.enums.js';
 import { FanoutOutboxStatus } from './fanout.enums.js';
@@ -172,9 +176,7 @@ export class FanoutWorker {
       },
       select: { id: true, recipientUserId: true, title: true, body: true }
     });
-    const notificationByUser = new Map(
-      notifications.map((row) => [row.recipientUserId, row])
-    );
+    const notificationByUser = new Map(notifications.map((row) => [row.recipientUserId, row]));
 
     const tokens = await this.prisma.deviceToken.findMany({
       where: { userId: { in: recipientIds }, isActive: true },

@@ -31,5 +31,4 @@ export function detectImageType(buf: Buffer): DetectedImageType | null {
   return null;
 }
 
-export const isSupportedImage = (buf: Buffer): boolean =>
-  detectImageType(buf) !== null;
+export const isSupportedImage = (buf: Buffer): boolean => detectImageType(buf) !== null;

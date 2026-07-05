@@ -41,7 +41,10 @@ export class LocationsService {
       where: { id: areaId, type: LocationType.Area, isActive: true }
     });
     if (!area || area.parentId !== cityId) {
-      throw new BadRequestException({ code: 'areaCityMismatch', message: 'Area does not belong to city' });
+      throw new BadRequestException({
+        code: 'areaCityMismatch',
+        message: 'Area does not belong to city'
+      });
     }
   }
 

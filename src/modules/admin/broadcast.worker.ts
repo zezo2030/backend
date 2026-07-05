@@ -2,7 +2,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
-import { PUSH_DISPATCHER, type PushDispatcher, type PushTarget } from '../../infra/push/push.provider.js';
+import {
+  PUSH_DISPATCHER,
+  type PushDispatcher,
+  type PushTarget
+} from '../../infra/push/push.provider.js';
 import { DeviceTokensInvalidator } from '../notifications/device-tokens-invalidator.service.js';
 import { NotificationType } from '../notifications/notification.enums.js';
 import { BroadcastOutboxStatus } from './broadcast.enums.js';

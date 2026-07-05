@@ -73,7 +73,9 @@ export const envValidationSchema = Joi.object({
     Boolean(value.FIREBASE_CLIENT_EMAIL?.trim()) && Boolean(value.FIREBASE_PRIVATE_KEY?.trim());
 
   if (!value.FIREBASE_PROJECT_ID?.trim()) {
-    return helpers.error('any.custom', { message: 'FIREBASE_PROJECT_ID is required when PUSH_PROVIDER=fcm' });
+    return helpers.error('any.custom', {
+      message: 'FIREBASE_PROJECT_ID is required when PUSH_PROVIDER=fcm'
+    });
   }
   if (!hasServiceAccountFile && !hasInlineCredentials) {
     return helpers.error('any.custom', {
@@ -84,7 +86,9 @@ export const envValidationSchema = Joi.object({
   if (!hasServiceAccountFile && value.FIREBASE_CLIENT_EMAIL?.trim()) {
     const { error } = Joi.string().email().validate(value.FIREBASE_CLIENT_EMAIL);
     if (error) {
-      return helpers.error('any.custom', { message: 'FIREBASE_CLIENT_EMAIL must be a valid email' });
+      return helpers.error('any.custom', {
+        message: 'FIREBASE_CLIENT_EMAIL must be a valid email'
+      });
     }
   }
   if (value.MAIL_PROVIDER === 'smtp') {

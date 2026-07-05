@@ -143,9 +143,7 @@ describe('OpenAPI contract conformance', () => {
     expect(feed.status).toBe(200);
     assertConformant('GET /properties', feed);
 
-    const detail = await request(httpServer(testApp)).get(
-      `/api/v1/properties/${property.id}`
-    );
+    const detail = await request(httpServer(testApp)).get(`/api/v1/properties/${property.id}`);
     expect(detail.status).toBe(200);
     assertConformant('GET /properties/{id}', detail);
 

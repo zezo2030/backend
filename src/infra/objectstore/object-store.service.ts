@@ -41,14 +41,20 @@ export class ObjectStoreService {
   }
 
   async head(objectKey: string): Promise<{ contentType: string; sizeBytes: number } | null> {
-    const encodedPath = objectKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-    const response = await fetch(`${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`, {
-      method: 'HEAD',
-      headers: {
-        Authorization: `Bearer ${this.serviceRoleKey}`,
-        apikey: this.serviceRoleKey
+    const encodedPath = objectKey
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const response = await fetch(
+      `${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`,
+      {
+        method: 'HEAD',
+        headers: {
+          Authorization: `Bearer ${this.serviceRoleKey}`,
+          apikey: this.serviceRoleKey
+        }
       }
-    });
+    );
     if (!response.ok) return null;
     return {
       contentType: response.headers.get('content-type') ?? 'application/octet-stream',
@@ -58,14 +64,20 @@ export class ObjectStoreService {
 
   /** Read the first `length` bytes of an object via a ranged GET. */
   async peekBytes(objectKey: string, length: number): Promise<Buffer | null> {
-    const encodedPath = objectKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-    const response = await fetch(`${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`, {
-      headers: {
-        Authorization: `Bearer ${this.serviceRoleKey}`,
-        apikey: this.serviceRoleKey,
-        Range: `bytes=0-${length - 1}`
+    const encodedPath = objectKey
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const response = await fetch(
+      `${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`,
+      {
+        headers: {
+          Authorization: `Bearer ${this.serviceRoleKey}`,
+          apikey: this.serviceRoleKey,
+          Range: `bytes=0-${length - 1}`
+        }
       }
-    });
+    );
     if (!response.ok) return null;
     return Buffer.from(await response.arrayBuffer());
   }
@@ -90,13 +102,19 @@ export class ObjectStoreService {
   }
 
   async getObject(objectKey: string): Promise<Buffer | null> {
-    const encodedPath = objectKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-    const response = await fetch(`${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`, {
-      headers: {
-        Authorization: `Bearer ${this.serviceRoleKey}`,
-        apikey: this.serviceRoleKey
+    const encodedPath = objectKey
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const response = await fetch(
+      `${this.supabaseUrl}/storage/v1/object/${this.bucket}/${encodedPath}`,
+      {
+        headers: {
+          Authorization: `Bearer ${this.serviceRoleKey}`,
+          apikey: this.serviceRoleKey
+        }
       }
-    });
+    );
     if (!response.ok) return null;
     return Buffer.from(await response.arrayBuffer());
   }
