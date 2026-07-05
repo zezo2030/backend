@@ -86,7 +86,7 @@ export default (): AppConfig => ({
   videoMaxBytes: Number(process.env.VIDEO_MAX_BYTES ?? 104857600),
   ownerEmail: (process.env.OWNER_EMAIL ?? '').trim().toLowerCase(),
   android: {
-    packageName: (process.env.ANDROID_PACKAGE_NAME ?? 'com.realestatemobile').trim(),
+    packageName: (process.env.ANDROID_PACKAGE_NAME ?? 'com.riden74.app').trim(),
     certFingerprints: (process.env.ANDROID_CERT_SHA256 ?? '')
       .split(',')
       .map((fp) => fp.trim().toUpperCase())

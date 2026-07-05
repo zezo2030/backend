@@ -14,7 +14,7 @@ describe('WellKnownController.assetLinks', () => {
   it('emits a valid Digital Asset Links statement when a fingerprint is configured', () => {
     const sha = 'FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C';
     const result = makeController({
-      packageName: 'com.realestatemobile',
+      packageName: 'com.riden74.app',
       certFingerprints: [sha]
     }).assetLinks();
 
@@ -23,7 +23,7 @@ describe('WellKnownController.assetLinks', () => {
         relation: ['delegate_permission/common.handle_all_urls'],
         target: {
           namespace: 'android_app',
-          package_name: 'com.realestatemobile',
+          package_name: 'com.riden74.app',
           sha256_cert_fingerprints: [sha]
         }
       }
@@ -32,7 +32,7 @@ describe('WellKnownController.assetLinks', () => {
 
   it('supports multiple fingerprints (upload key + Play App Signing key)', () => {
     const result = makeController({
-      packageName: 'com.realestatemobile',
+      packageName: 'com.riden74.app',
       certFingerprints: ['AA:BB', 'CC:DD']
     }).assetLinks();
 
@@ -41,7 +41,7 @@ describe('WellKnownController.assetLinks', () => {
 
   it('returns an empty list (verification pending) when no fingerprint is set', () => {
     const result = makeController({
-      packageName: 'com.realestatemobile',
+      packageName: 'com.riden74.app',
       certFingerprints: []
     }).assetLinks();
 
