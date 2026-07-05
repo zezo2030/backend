@@ -51,22 +51,32 @@ const toFcmData = (message: PushMessage): Record<string, string> => ({
   )
 });
 
-// Android: data-only so the mobile background handler surfaces the alert via
-// Notifee with the branded large icon. iOS: APNS alert (required when killed).
+// Both platforms carry a notification block so the OS renders the alert in the
+// background/killed state WITHOUT waking the JS handler — data-only messages are
+// not reliably delivered to a backgrounded/stopped Android app, which is why
+// pushes only worked while the app was open. `data` still travels for deep-link
+// routing on tap; foreground display is handled by the app (onMessage) so no
+// duplicate appears. `android.notification` carries the branded icon/colour.
 const toFcmMessage = (token: string, message: PushMessage): Message => ({
   token,
+  notification: { title: message.title, body: message.body },
   data: toFcmData(message),
   android: {
     priority: 'high',
-    ttl: 86400000
+    ttl: 86400000,
+    notification: {
+      channelId: 'requests',
+      icon: 'ic_stat_notification',
+      color: '#0A3C5D',
+      defaultSound: true
+    }
   },
   apns: {
     headers: { 'apns-priority': '10' },
     payload: {
       aps: {
         alert: { title: message.title, body: message.body },
-        sound: 'default',
-        contentAvailable: true
+        sound: 'default'
       }
     }
   }
@@ -102,6 +112,7 @@ export class FcmAdapter implements PushDispatcher {
     const fcmMessage = toFcmMessage(tokens[0] ?? '', message);
     const response = await messaging.sendEachForMulticast({
       tokens,
+      notification: fcmMessage.notification,
       data: fcmMessage.data,
       android: fcmMessage.android,
       apns: fcmMessage.apns
