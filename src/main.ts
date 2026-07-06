@@ -33,7 +33,8 @@ async function bootstrap(): Promise<void> {
     exclude: [
       { path: 'health', method: RequestMethod.ALL },
       { path: '.well-known/assetlinks.json', method: RequestMethod.GET },
-      { path: 'privacy-policy', method: RequestMethod.GET }
+      { path: 'privacy-policy', method: RequestMethod.GET },
+      { path: 'account-deletion', method: RequestMethod.GET }
     ]
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
